@@ -1,13 +1,25 @@
+import socket
+import time
+
 from Player import Player
 from Projectile import Projectile
+from Level import Level
+
+MIN_X = 0
+MIN_Y = 0
+MAX_X = 1920
+MAX_Y = 1080
 
 class Server:
 
     players: list[Player]
     projectiles: list[Projectile]
+    level: Level
+
+    last_update: float  # sec
 
     def __init__(self):
-        ...
+        self.last_update = time.perf_counter()
 
     def tick(self):
         self.get_player_updates()
@@ -21,11 +33,37 @@ class Server:
 
     def update_projectiles(self):
         """Update the positions of all existing projectiles"""
-        ...
+
+        dt = self.last_update - time.perf_counter()
+        for projectile in self.projectiles:
+            projectile.update_position(dt)
+        self.last_update = time.perf_counter()
 
     def check_collisions(self):
         """Check if any of the bombs connected to a surface or player, and update their hp values accordingly"""
-        ...
+
+        new_projectiles = []
+        update_projectiles = False
+        for projectile in self.projectiles:
+            px, py = projectile.x, projectile.y
+
+            # If it collides with the level
+            if self.level.check_collision_point(px, py):
+                update_projectiles = True
+
+                # If it collides with an enemy player
+                for player in self.players:
+                    if (projectile.check_player_collision(player.x, player.y)
+                            and player.same_team(projectile.team)):
+                        player.make_hit()
+
+            else:
+                new_projectiles.append(projectile)
+
+        # Don't change projectiles if none of them need to be removed
+        if update_projectiles:
+            self.projectiles = new_projectiles
+
 
     def send_updates_to_clients(self):
         """Send back packets to the clients about the statuses of all players and projectiles"""

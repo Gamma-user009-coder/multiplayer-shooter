@@ -8,6 +8,8 @@ class Projectile:
     v0: float  # px/sec
     v0x: float  # px/sec
     v0y: float  # px/sec
+    r: int  # px
+
     t: float  # sec
     x: int  # px
     y: int  # px
@@ -36,7 +38,10 @@ class Projectile:
         self.x = self.x0
         self.y = self.y0
 
-    def update_position(self, dt: float):
+    def update_position(self, dt: float) -> None:
         self.t += dt
         self.x = self.x0 + int(self.t * self.v0x)
         self.y = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
+
+    def check_player_collision(self, x: int, y: int) -> bool:
+        return math.dist((self.x, self.y), (x, y)) < self.r
