@@ -30,7 +30,7 @@ class Server:
     def update_projectiles(self):
         """Update the positions of all existing projectiles"""
 
-        dt = self.last_update - time.perf_counter()
+        dt = time.perf_counter() - self.last_update
 
         new_projectiles = []
         update_projectiles = False
@@ -60,7 +60,7 @@ class Server:
 
                 # If it collides with an enemy player
                 for player in self.players:
-                    if (projectile.check_player_collision(player.x, player.y)
+                    if (projectile.check_player_hit(player.x, player.y, self.level)
                             and player.same_team(projectile.team)):
                         player.make_hit()
 

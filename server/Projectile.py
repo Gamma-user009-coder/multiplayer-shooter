@@ -69,8 +69,10 @@ class Projectile:
             self.y = ny
             return False
 
-    def check_player_collision(self, x: int, y: int) -> bool:
-        return math.dist((self.x, self.y), (x, y)) < self.r
+    def check_player_hit(self, x: int, y: int, level: Level) -> bool:
+        within_range = math.dist((self.x, self.y), (x, y)) < self.r
+        within_line_of_sight = level.check_collision_line(self.x, self.y, x, y)
+        return within_range and within_line_of_sight
 
     def check_out_of_screen(self):
         return (self.x < 0 - Level.SCREEN_EDGE_BUFFER
