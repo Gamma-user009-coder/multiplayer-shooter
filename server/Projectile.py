@@ -1,5 +1,7 @@
 import math
 
+from Level import Level
+
 class Projectile:
 
     x0: int  # px
@@ -17,8 +19,9 @@ class Projectile:
     DEFAULT_ANGLE = math.pi / 4  # rads
     DEFAULT_BASE_VELOCITY = 100  # px/sec
     G = 10  # px/sec
+    DEFAULT_EXPLOSION_RADIUS = 50  # px
 
-    def __init__(self, x0: int, y0: int, angle: float = None, v0: float = None):
+    def __init__(self, x0: int, y0: int, angle: float = None, v0: float = None, r: int = None):
         self.x0 = x0
         self.y0 = y0
         if angle is not None:
@@ -34,6 +37,11 @@ class Projectile:
         self.v0x = math.cos(self.angle) * self.v0
         self.v0y = math.sin(self.angle) * self.v0
 
+        if r is not None:
+            self.r = r
+        else:
+            self.r = self.DEFAULT_EXPLOSION_RADIUS
+
         self.t = 0
         self.x = self.x0
         self.y = self.y0
@@ -45,3 +53,9 @@ class Projectile:
 
     def check_player_collision(self, x: int, y: int) -> bool:
         return math.dist((self.x, self.y), (x, y)) < self.r
+
+    def check_out_of_screen(self):
+        return (self.x < 0 - Level.SCREEN_EDGE_BUFFER
+                or self.x > Level.MAX_X + Level.SCREEN_EDGE_BUFFER
+                or self.y < 0 - Level.SCREEN_EDGE_BUFFER
+                or self.y > Level.MAX_Y + Level.SCREEN_EDGE_BUFFER)

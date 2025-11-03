@@ -39,6 +39,12 @@ class Level:
 
     boxes: list[Box]
 
+    MIN_X = 0
+    MIN_Y = 0
+    MAX_X = 1920
+    MAX_Y = 1080
+    SCREEN_EDGE_BUFFER = 50
+
     def __init__(self, boxes: list[Box]):
         self.boxes = []
         for box in boxes:

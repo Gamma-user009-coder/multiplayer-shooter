@@ -5,10 +5,6 @@ from Player import Player
 from Projectile import Projectile
 from Level import Level
 
-MIN_X = 0
-MIN_Y = 0
-MAX_X = 1920
-MAX_Y = 1080
 
 class Server:
 
@@ -35,8 +31,19 @@ class Server:
         """Update the positions of all existing projectiles"""
 
         dt = self.last_update - time.perf_counter()
+
+        new_projectiles = []
+        update_projectiles = False
         for projectile in self.projectiles:
             projectile.update_position(dt)
+            if projectile.check_out_of_screen():
+                update_projectiles = True
+            else:
+                new_projectiles.append(projectile)
+
+        if update_projectiles:
+            self.projectiles = new_projectiles
+
         self.last_update = time.perf_counter()
 
     def check_collisions(self):
