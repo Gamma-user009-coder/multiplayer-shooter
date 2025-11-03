@@ -11,6 +11,7 @@ class Projectile:
     v0x: float  # px/sec
     v0y: float  # px/sec
     r: int  # px
+    team: int
 
     t: float  # sec
     x: int  # px
@@ -21,9 +22,11 @@ class Projectile:
     G = 10  # px/sec
     DEFAULT_EXPLOSION_RADIUS = 50  # px
 
-    def __init__(self, x0: int, y0: int, angle: float = None, v0: float = None, r: int = None):
+    def __init__(self, x0: int, y0: int, team: int, angle: float = None, v0: float = None, r: int = None):
         self.x0 = x0
         self.y0 = y0
+        self.team = team
+
         if angle is not None:
             self.angle = angle
         else:
@@ -50,6 +53,21 @@ class Projectile:
         self.t += dt
         self.x = self.x0 + int(self.t * self.v0x)
         self.y = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
+
+    def update_position_check_collisions(self, dt: float, level: Level) -> bool:
+        """Returns False and updates self coordinates if no collision; else returns collision coordinates (x,y)"""
+        dx = int(dt * self.v0x)
+        dy = int(dt * self.v0y - 0.5 * self.G * dt * dt)
+        nx = self.x + dx
+        ny = self.y + dy
+        collision = level.check_collision_line(self.x, self.y, nx, ny)
+        if collision:
+            return collision
+        else:
+            self.t += dt
+            self.x = nx
+            self.y = ny
+            return False
 
     def check_player_collision(self, x: int, y: int) -> bool:
         return math.dist((self.x, self.y), (x, y)) < self.r

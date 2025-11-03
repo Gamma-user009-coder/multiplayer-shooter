@@ -18,13 +18,18 @@ class Box:
         return (self.x1 <= x <= self.x2) and (self.y1 <= y <= self.y2)
 
     def check_collision_line(self, x1: int, y1: int, x2: int, y2: int):
+        """Returns False if no collision; else the collision coordinates (x,y)"""
         c0, c1, c2, c3 = self._get_corners()
-        return any([
+        for collision in [
             self._check_collision_line_horizontal(x1, y1, x2, y2, c0[0], c1[0], c0[1]),
             self._check_collision_line_horizontal(x1, y1, x2, y2, c3[0], c2[0], c2[1]),
             self._check_collision_line_vertical(x1, y1, x2, y2, c1[1], c2[1], c1[0]),
             self._check_collision_line_vertical(x1, y1, x2, y2, c0[1], c3[1], c0[0])
-        ])
+        ]:
+            if collision:
+                return collision
+        return False
+
 
     def _get_corners(self):
         return [(self.x1, self.y1), (self.x2, self.y1), (self.x2, self.y2), (self.x1, self.y2)]
@@ -42,6 +47,7 @@ class Box:
 
     @staticmethod
     def _check_collision_line_horizontal(x1: int, y1: int, x2: int, y2: int, x3: int, x4: int, y3: int):
+        """Returns False if no collision, otherwise the collision coordinates (x,y)"""
         if y1 > y2:
             y1, y2 = y2, y1
             x1, x2 = x2, x1
@@ -55,6 +61,7 @@ class Box:
 
     @staticmethod
     def _check_collision_line_vertical(x1: int, y1: int, x2: int, y2: int, y3: int, y4: int, x3: int):
+        """Returns False if no collision, otherwise the collision coordinates (x,y)"""
         if x1 > x2:
             x1, x2 = x2, x1
             y1, y2 = y2, y1
@@ -90,7 +97,12 @@ class Level:
         return False
 
     def check_collision_line(self, x1: int, y1: int, x2: int, y2: int):
-        ...
+        """Returns False if no collision; else the collision coordinates (x,y)"""
+        for box in self.boxes:
+            collision = box.check_collision_line(x1, y1, x2, y2)
+            if collision:
+                return collision
+        return False
 
     def add_box(self, x1: int, y1: int, x2: int, y2: int) -> None:
         self.boxes.append(Box(x1, y1, x2, y2))
