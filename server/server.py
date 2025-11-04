@@ -83,6 +83,8 @@ class Server:
         update_projectiles = False
 
         dt = time.perf_counter() - self.last_update
+        if dt < 0.0001:
+            return
         self.last_update = time.perf_counter()
 
         # For each projectile in the air,

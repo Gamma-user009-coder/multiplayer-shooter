@@ -1,3 +1,5 @@
+import csv
+
 from Collision import Collision
 from Player import Player
 
@@ -96,6 +98,17 @@ class Level:
         self.boxes = []
         for box in boxes:
             self.boxes.append(box)
+
+    @classmethod
+    def load(cls, path: str):
+        """Loads the level from a csv file where each line is x, y, w, h"""
+        boxes = []
+        with open(path, "rt") as file:
+            csvreader = csv.reader(file)
+            for row in csvreader:
+                x1, y1, w, h = row
+                boxes.append(Box(int(x1), int(y1), int(x1) + int(w), int(y1) + int(h)))
+        return cls(boxes)
 
     def check_collision_point(self, x: int, y: int) -> Collision:
         """Check if a point collides with the level"""
