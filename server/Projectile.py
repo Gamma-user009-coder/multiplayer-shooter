@@ -20,7 +20,7 @@ class Projectile:
 
     DEFAULT_ANGLE = math.pi / 4  # rads
     DEFAULT_BASE_VELOCITY = 100  # px/sec
-    G = 10  # px/sec
+    G = 30  # px/sec
     DEFAULT_EXPLOSION_RADIUS = 50  # px
 
     def __init__(self, x0: int, y0: int, team: int, angle: float = None, v0: float = None, r: int = None):
@@ -55,12 +55,11 @@ class Projectile:
         self.x = self.x0 + int(self.t * self.v0x)
         self.y = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
 
-    def update_position_check_collisions(self, dt: float, level: Level) -> bool:
+    def update_position_check_collisions(self, dt: float, level: Level):
         """Returns False and updates self coordinates if no collision; else returns collision coordinates (x,y)"""
-        dx = int(dt * self.v0x)
-        dy = int(dt * self.v0y - 0.5 * self.G * dt * dt)
-        nx = self.x + dx
-        ny = self.y + dy
+        self.t += dt
+        nx = self.x0 + int(self.t * self.v0x)
+        ny = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
         collision = level.check_collision_line(self.x, self.y, nx, ny)
         if collision:
             return collision
