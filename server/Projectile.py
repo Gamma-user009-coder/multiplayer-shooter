@@ -1,6 +1,7 @@
 import math
 
-from Level import Level
+from Level import Level, Box
+from Player import Player
 
 class Projectile:
 
@@ -69,9 +70,9 @@ class Projectile:
             self.y = ny
             return False
 
-    def check_player_hit(self, x: int, y: int, level: Level) -> bool:
-        within_range = math.dist((self.x, self.y), (x, y)) < self.r
-        within_line_of_sight = level.check_collision_line(self.x, self.y, x, y)
+    def check_player_hit(self, player: Player, level: Level) -> bool:
+        within_range = math.dist((self.x, self.y), (player.x, player.y)) < self.r
+        within_line_of_sight = level.check_collision_line(self.x, self.y, player.x, player.y)
         return within_range and within_line_of_sight
 
     def check_out_of_screen(self):
@@ -79,3 +80,10 @@ class Projectile:
                 or self.x > Level.MAX_X + Level.SCREEN_EDGE_BUFFER
                 or self.y < 0 - Level.SCREEN_EDGE_BUFFER
                 or self.y > Level.MAX_Y + Level.SCREEN_EDGE_BUFFER)
+
+    def check_level_collision(self, level: Level):
+        return level.check_collision_point(self.x, self.y)
+
+    def check_player_collision(self, player: Player):
+        player_box = Box(player.x, player.y, player.x + player.width, player.y + player.height)
+        return player_box.check_collision_point(self.x, self.y)

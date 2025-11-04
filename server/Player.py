@@ -4,6 +4,8 @@ class Player:
     y: int
     hp: int
     team: int
+    width: int = 50
+    height: int = 50
 
 
     MIN_HP = 0

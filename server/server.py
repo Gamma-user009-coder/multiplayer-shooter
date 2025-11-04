@@ -51,19 +51,24 @@ class Server:
 
         new_projectiles = []
         update_projectiles = False
+
         for projectile in self.projectiles:
-            px, py = projectile.x, projectile.y
-
-            # If it collides with the level
-            if self.level.check_collision_point(px, py):
-                update_projectiles = True
-
-                # If it collides with an enemy player
+            # Check for a collision with the level
+            collision = projectile.check_level_collision(self.level)
+            if not collision:
+                # Check for a collision with an enemy player
                 for player in self.players:
-                    if (projectile.check_player_hit(player.x, player.y, self.level)
-                            and player.same_team(projectile.team)):
+                    if player.same_team(projectile.team):
+                        collision = collision or projectile.check_player_collision(player)
+
+            if collision:
+                # Check if an enemy player is hit
+                for player in self.players:
+                    if player.same_team(projectile.team) and projectile.check_player_hit(player, self.level):
                         player.make_hit()
 
+            if collision:
+                update_projectiles = True
             else:
                 new_projectiles.append(projectile)
 
