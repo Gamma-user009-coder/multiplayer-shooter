@@ -1,4 +1,5 @@
 from Collision import Collision
+from Player import Player
 
 class Box:
 
@@ -76,13 +77,17 @@ class Box:
             return Collision(x3, ty)
         return Collision.false()
 
+    @classmethod
+    def from_player(cls, player: Player):
+        return cls(player.x, player.y, player.x + player.width, player.y + player.height)
+
 
 class Level:
 
     boxes: list[Box]
 
-    MIN_X = 0
-    MIN_Y = 0
+    MIN_X = -1000
+    MIN_Y = -1000
     MAX_X = 1920
     MAX_Y = 1080
     SCREEN_EDGE_BUFFER = 50

@@ -56,7 +56,7 @@ class Projectile:
         self.x = self.x0 + int(self.t * self.v0x)
         self.y = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
 
-    def update_position_check_collisions(self, dt: float, level: Level) -> Collision:
+    def update_position_check_collisions(self, dt: float, level: Level, players: list[Player] = []) -> Collision:
         """Returns False and updates self coordinates if no collision; else returns collision coordinates (x,y)"""
         self.t += dt
         nx = self.x0 + int(self.t * self.v0x)
@@ -64,11 +64,15 @@ class Projectile:
         collision = level.check_collision_line(self.x, self.y, nx, ny)
         if collision:
             return collision
-        else:
-            self.t += dt
-            self.x = nx
-            self.y = ny
-            return Collision.false()
+        for player in players:
+            collision = self.check_player_collision_line(player, nx, ny)
+            if collision:
+                return collision
+
+        self.t += dt
+        self.x = nx
+        self.y = ny
+        return Collision.false()
 
     def check_player_hit(self, player: Player, level: Level) -> bool:
         within_range = math.dist((self.x, self.y), (player.x, player.y)) < self.r
@@ -76,14 +80,18 @@ class Projectile:
         return within_range and within_line_of_sight
 
     def check_out_of_screen(self):
-        return (self.x < 0 - Level.SCREEN_EDGE_BUFFER
+        return (self.x < Level.MIN_X - Level.SCREEN_EDGE_BUFFER
                 or self.x > Level.MAX_X + Level.SCREEN_EDGE_BUFFER
-                or self.y < 0 - Level.SCREEN_EDGE_BUFFER
+                or self.y < Level.MIN_Y - Level.SCREEN_EDGE_BUFFER
                 or self.y > Level.MAX_Y + Level.SCREEN_EDGE_BUFFER)
 
     def check_level_collision(self, level: Level):
         return level.check_collision_point(self.x, self.y)
 
     def check_player_collision(self, player: Player):
-        player_box = Box(player.x, player.y, player.x + player.width, player.y + player.height)
+        player_box = Box.from_player(player)
         return player_box.check_collision_point(self.x, self.y)
+
+    def check_player_collision_line(self, player: Player, x2: int, y2: int):
+        player_box = Box.from_player(player)
+        return player_box.check_collision_line(self.x, self.y, x2, y2)
