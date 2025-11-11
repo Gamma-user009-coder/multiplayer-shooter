@@ -64,6 +64,7 @@ class Server:
             data, connection = self.server_socket.recvfrom(2048)
             try:
                 if json.loads(data)['id'] == ClientPackets.FIRST_CONNECTION_REQUEST.value:
+                    print("new client connected")
                     new_player_id = self.next_connection_id
                     self.connections[new_player_id] = Connection(connection[0], connection[1])
                     self.next_connection_id += 1
@@ -71,6 +72,7 @@ class Server:
                     msg = json.dumps(server_packets.AssignId(new_player_id).to_dict()).encode()
 
                     self.outgoing_data.put((msg, Connection(connection[0], connection[1])))
+                    continue
 
             except JSONDecodeError:
                 # return error to client (maybe returning error to client isn't required, TBD)
@@ -155,7 +157,7 @@ class Server:
         """ Send packets from the outgoing packets queue to the correct client. A thread will always run this function """
         while True:
             data, connection = self.outgoing_data.get()
-            print(data, connection.to_tuple())
+            print(data, connection.to_tuple(), sep='\n')
             self.server_socket.sendto(data, connection.to_tuple())
 
 
