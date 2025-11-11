@@ -8,7 +8,7 @@ from Level import Level
 
 class Server:
 
-    players: list[Player]
+    players: dict[int, Player]
     projectiles: list[Projectile]
     level: Level
 
@@ -100,7 +100,7 @@ class Server:
 
             # If there's a collision, check if any enemy players were hit
             if collision:
-                for player in self.players:
+                for player in self.players.values():
                     if (not player.same_team(projectile.team)) and projectile.check_player_hit(player, self.level):
                         player.make_hit()
 

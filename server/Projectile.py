@@ -56,7 +56,7 @@ class Projectile:
         self.x = self.x0 + int(self.t * self.v0x)
         self.y = self.y0 + int(self.t * self.v0y - 0.5 * self.G * self.t * self.t)
 
-    def update_position_check_collisions(self, dt: float, level: Level, players: list[Player] = []) -> Collision:
+    def update_position_check_collisions(self, dt: float, level: Level, players: dict[int, Player] = []) -> Collision:
         """Returns False and updates self coordinates if no collision; else returns collision coordinates (x,y)"""
         self.t += dt
         nx = self.x0 + int(self.t * self.v0x)
@@ -64,7 +64,7 @@ class Projectile:
         collision = level.check_collision_line(self.x, self.y, nx, ny)
         if collision:
             return collision
-        for player in players:
+        for player in players.values():
             collision = self.check_player_collision_line(player, nx, ny)
             if collision:
                 return collision
