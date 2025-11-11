@@ -7,6 +7,7 @@ import threading
 import queue
 import json
 import client_packets
+from client_packets import ClientPackets
 import server_packets
 
 
@@ -56,11 +57,13 @@ class Server:
 
 
     def listen(self):
-        """ Listen for incoming packets and add them to the incoming data queue. A thread will always run this function. """
+        """ Listen for incoming packets and add them to the incoming data queue.
+            In case of a new connection the server will assign them an id and respond to the client.
+            A thread will always run this function. """
         while True:
             data, connection = self.server_socket.recvfrom(2048)
             try:
-                if json.loads(data)['id'] == 6:
+                if json.loads(data)['id'] == ClientPackets.FIRST_CONNECTION_REQUEST.value:
                     new_player_id = self.next_connection_id
                     self.connections[new_player_id] = Connection(connection[0], connection[1])
                     self.next_connection_id += 1
@@ -105,18 +108,18 @@ class Server:
         """ Get json and pass it to the correct handler """
         print("handling request for json:", json_dict)
         try:
-            if json_dict['id'] == 0:
-                print("0")
+            if json_dict['id'] == ClientPackets.ERROR_MESSAGE.value:
+                print("handling error message packet")
                 # TODO: handle error message
 
-            if json_dict['id'] == 1:
-                print("1")
+            if json_dict['id'] == ClientPackets.JOIN_GAME_REQUEST.value:
+                print("handling join game request packet")
                 player_id, username = json_dict['player_id'], json_dict['name']
                 join_game = client_packets.JoinGameRequest(player_id, username)
                 # TODO: handle join request
 
-            elif json_dict['id'] == 2:
-                print("2")
+            elif json_dict['id'] == ClientPackets.PLAYER_STATUS.value:
+                print("handle player status update packet")
                 self.handle_player_update(json_dict)
 
             else:

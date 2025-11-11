@@ -1,5 +1,13 @@
 from Projectile import Projectile
 from typing import Optional
+from enum import Enum
+class ClientPackets(Enum):
+    ERROR_MESSAGE = 0
+    JOIN_GAME_REQUEST = 1
+    PLAYER_STATUS = 2
+    FIRST_CONNECTION_REQUEST = 3
+    JOIN_ROOM_REQUEST = 4
+
 
 # packet id: 0
 class ErrorMessage:
