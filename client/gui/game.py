@@ -146,6 +146,24 @@ class Game:
                 if event.key == pygame.K_SPACE:
                     self.player.attack()
 
+    def connect_to_server(self) -> bool:
+        pass
+
+    def disconnect_from_server(self) -> bool:
+        pass
+
+    def send_player_state(self) -> None:
+        pass
+
+    def update_enemy_location(self) -> None:
+        pass
+
+    def start_explosion(self) -> None:
+        pass
+
+    def update_projectile_location(self) -> None:
+        pass
+
     def run(self) -> None:
         """The main game loop."""
         while self.running:
