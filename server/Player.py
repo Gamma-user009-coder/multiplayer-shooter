@@ -7,7 +7,6 @@ class Player:
     width: int = 50
     height: int = 50
 
-
     MIN_HP = 0
     MAX_HP = 100
     BOMB_DAMAGE = 50
@@ -28,3 +27,6 @@ class Player:
 
     def same_team(self, team):
         return self.team == team
+
+    def to_tuple(self):
+        return self.hp, (self.x, self.y)
