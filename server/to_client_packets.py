@@ -3,7 +3,7 @@ from typing import Optional
 from Player import Player
 from enum import Enum
 
-class ServerPackets(Enum):
+class ToClientPackets(Enum):
     ERROR_MESSAGE = 0
     PLAYER_STATUS = 1
     JOIN_GAME_RESPONSE = 2

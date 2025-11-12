@@ -1,7 +1,8 @@
 from Projectile import Projectile
 from typing import Optional
 from enum import Enum
-class ClientPackets(Enum):
+
+class FromClientPackets(Enum):
     ERROR_MESSAGE = 0
     JOIN_GAME_REQUEST = 1
     PLAYER_STATUS = 2
@@ -42,7 +43,14 @@ class JoinGameRequest:
 
 # packet id: 3
 class FirstConnectionRequest:
-    ... # will probably stay empty and get deleted when there will be a client packets enum
+    username = str
+    def __init__(self, username):
+        self.username = username
+
+    # this isn't needed on the server because the server doesn't serialize
+    # a packet from the client, it's left here for now for test1.py
+    def to_dict(self):
+        return {'id': FromClientPackets.FIRST_CONNECTION_REQUEST.value, 'username': self.username}
 
 # packet id: 4
 class JoinRoomRequest:

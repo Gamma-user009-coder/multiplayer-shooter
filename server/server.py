@@ -9,9 +9,9 @@ import socket
 import threading
 import queue
 import json
-import client_packets
-from client_packets import ClientPackets
-import server_packets
+import from_client_packets
+from from_client_packets import FromClientPackets
+import to_client_packets
 
 class Connection:
     ip = str
@@ -164,13 +164,15 @@ class Server:
         while True:
             data, connection = self.server_socket.recvfrom(2048)
             try:
-                if json.loads(data)['id'] == ClientPackets.FIRST_CONNECTION_REQUEST.value:
+                if json.loads(data)['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
+                    # TODO: Handle the username field of the packet (create player).
+
                     print("new client connected")
                     new_player_id = self.next_connection_id
                     self.connections[new_player_id] = Connection(connection[0], connection[1])
                     self.next_connection_id += 1
 
-                    msg = json.dumps(server_packets.AssignId(new_player_id).to_dict()).encode()
+                    msg = json.dumps(to_client_packets.AssignId(new_player_id).to_dict()).encode()
 
                     self.outgoing_data.put((msg, Connection(connection[0], connection[1])))
                     continue
@@ -211,17 +213,17 @@ class Server:
         """ Get json and pass it to the correct handler """
         print("handling request for json:", json_dict)
         try:
-            if json_dict['id'] == ClientPackets.ERROR_MESSAGE.value:
+            if json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
                 print("handling error message packet")
                 # TODO: handle error message
 
-            if json_dict['id'] == ClientPackets.JOIN_GAME_REQUEST.value:
+            if json_dict['id'] == FromClientPackets.JOIN_GAME_REQUEST.value:
                 print("handling join game request packet")
                 player_id, username = json_dict['player_id'], json_dict['name']
-                join_game = client_packets.JoinGameRequest(player_id, username)
+                join_game = from_client_packets.JoinGameRequest(player_id, username)
                 # TODO: handle join request
 
-            elif json_dict['id'] == ClientPackets.PLAYER_STATUS.value:
+            elif json_dict['id'] == FromClientPackets.PLAYER_STATUS.value:
                 print("handle player status update packet")
                 self.handle_player_update(json_dict)
 
@@ -242,7 +244,7 @@ class Server:
         if json_dict['bomb'] != 0:
             x, y, angle = json_dict['bomb']
             projectile = Projectile(x, y, player_id, angle)
-        player_status = client_packets.PlayerStatus(player_id, json_dict['cord'], projectile)
+        player_status = from_client_packets.PlayerStatus(player_id, json_dict['cord'], projectile)
 
         self.players[player_status.player_id].x = player_status.pos[0]
         self.players[player_status.player_id].y = player_status.pos[1]
@@ -250,7 +252,7 @@ class Server:
             self.projectiles.append(projectile)
 
         for player in self.players:
-            msg = server_packets.PlayerStatus(self.players, self.projectiles).to_dict()
+            msg = to_client_packets.PlayerStatus(self.players, self.projectiles).to_dict()
             msg = json.dumps(msg).encode()
             self.outgoing_data.put(())
         # TODO: fully handle player status update
