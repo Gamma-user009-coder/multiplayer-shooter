@@ -24,6 +24,7 @@ class Connection:
     def to_tuple(self):
         return self.ip, self.port
 
+
 class Server:
 
     players: dict[int, Player]
@@ -55,7 +56,6 @@ class Server:
     def tick(self):
         self.get_player_updates()
         self.update_projectiles_check_collisions()
-        self.send_updates_to_clients()
 
     def get_player_updates(self):
         """Receive the clients' updates about their player status"""
@@ -92,13 +92,13 @@ class Server:
             collision = projectile.check_level_collision(self.level)
             if not collision:
                 # Check for a collision with an enemy player
-                for player in self.players:
+                for player in self.players.values():
                     if player.same_team(projectile.team):
                         collision = collision or projectile.check_player_collision(player)
 
             if collision:
                 # Check if an enemy player is hit
-                for player in self.players:
+                for player in self.players.values():
                     if player.same_team(projectile.team) and projectile.check_player_hit(player, self.level):
                         player.make_hit()
 
@@ -241,10 +241,11 @@ class Server:
         player_id = json_dict['player_id']
         if json_dict['bomb'] != 0:
             x, y, angle = json_dict['bomb']
-            projectile = Projectile(player_id, (x, y), angle)
+            projectile = Projectile(x, y, player_id, angle)
         player_status = client_packets.PlayerStatus(player_id, json_dict['cord'], projectile)
 
-        self.players[player_status.player_id].pos = player_status.pos
+        self.players[player_status.player_id].x = player_status.pos[0]
+        self.players[player_status.player_id].y = player_status.pos[1]
         if projectile:
             self.projectiles.append(projectile)
 
