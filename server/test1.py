@@ -5,7 +5,7 @@ import time
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    sock.connect(('127.0.0.1', 12345))
+    sock.connect(('127.0.0.1', 54321))
     dct = from_client_packets.FirstConnectionRequest("amit the king").to_dict()
     sock.send(json.dumps(dct).encode())
     print("sent")
@@ -17,7 +17,6 @@ def main():
                           'pos': (50, 50),
                           'projectile': None }
     json_player_status = json.dumps(player_status_dict)
-
     while True:
         sock.send(json_player_status.encode())
         print("sent status")

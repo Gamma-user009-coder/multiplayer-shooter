@@ -1,5 +1,7 @@
 from time import sleep
 
+from typing import Tuple
+
 from Player import Player
 from Projectile import Projectile
 from Level import Level
@@ -175,18 +177,14 @@ class Server:
                 print("Client closed socket:\n", e)
                 continue
             try:
-                if json.loads(data)['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
-                    # TODO: Handle the username field of the packet (create player).
-
+                json_dct: dict = json.loads(data)
+                if json_dct['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
                     print("new client connected")
                     new_player_id = self.next_connection_id
-                    self.connections[new_player_id] = Connection(connection[0], connection[1])
+                    json_dct['player_id'] = new_player_id
+                    json_dct['connection'] = connection
                     self.next_connection_id += 1
-
-                    msg = json.dumps(to_client_packets.AssignId(new_player_id).to_dict()).encode()
-
-                    self.outgoing_data.put((msg, Connection(connection[0], connection[1])))
-                    continue
+                    data = json.dumps(json_dct).encode()
 
             except JSONDecodeError:
                 # return error to client (maybe returning error to client isn't required, TBD)
@@ -224,11 +222,15 @@ class Server:
         """ Get json and pass it to the correct handler """
         # print("handling request for json:", json_dict)
         try:
-            if json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
+            if json_dict['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
+                print("handling first connection packet")
+                self.handle_first_connection(json_dict)
+
+            elif json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
                 print("handling error message packet")
                 # TODO: handle error message
 
-            if json_dict['id'] == FromClientPackets.JOIN_GAME_REQUEST.value:
+            elif json_dict['id'] == FromClientPackets.JOIN_GAME_REQUEST.value:
                 print("handling join game request packet")
                 player_id, username = json_dict['player_id'], json_dict['name']
                 join_game = from_client_packets.JoinGameRequest(player_id, username)
@@ -239,7 +241,7 @@ class Server:
                 self.handle_player_update(json_dict)
 
             else:
-                print("unknown id")
+                print("unknown id:", json_dict['id'])
 
         except KeyError as e:
             print("key error while deserializing:\n", e)
@@ -247,6 +249,14 @@ class Server:
         except TypeError as e:
             print("type error while deserializing:\n", e)
 
+    def handle_first_connection(self, json_dict):
+        new_player_id = json_dict['player_id']
+        connection = json_dict['connection']
+        connection = Connection(connection[0], connection[1])
+        self.connections[new_player_id] = connection
+        self.players[new_player_id] = Player(new_player_id, json_dict['username'])
+        msg = json.dumps(to_client_packets.AssignId(new_player_id).to_dict()).encode()
+        self.outgoing_data.put((msg, connection))
 
     def handle_player_update(self, json_dict):
         """ Handle packet of update of a player's status """
