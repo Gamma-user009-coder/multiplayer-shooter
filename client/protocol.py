@@ -74,7 +74,7 @@ class PlayerStatus:
         self.projectile = projectile
 
     def to_dict(self):
-        return {"id": self.player_id, "pos": self.pos, "projectile": self.projectile}
+        return {"id": ClientPackets.PLAYER_STATUS.value, "player_id": self.player_id, "pos": self.pos, "projectile": self.projectile}
 
 
 # packet id: 3

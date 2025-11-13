@@ -1,3 +1,5 @@
+from time import sleep
+
 from Player import Player
 from Projectile import Projectile
 from Level import Level
@@ -155,7 +157,7 @@ class Server:
         # SOCK_DGRAM specifies the socket type (UDP)
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self.server_socket.bind(('0.0.0.0', 12345))
+        self.server_socket.bind(('0.0.0.0', 54321))
         print(f"UDP server listening")
         threading.Thread(target=self.listen, daemon=True).start()
         threading.Thread(target=self.send_data, daemon=True).start()
@@ -220,7 +222,7 @@ class Server:
 
     def handle_requests(self, json_dict):
         """ Get json and pass it to the correct handler """
-        print("handling request for json:", json_dict)
+        # print("handling request for json:", json_dict)
         try:
             if json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
                 print("handling error message packet")
@@ -233,7 +235,7 @@ class Server:
                 # TODO: handle join request
 
             elif json_dict['id'] == FromClientPackets.PLAYER_STATUS.value:
-                print("handle player status update packet")
+                # print("handle player status update packet")
                 self.handle_player_update(json_dict)
 
             else:
@@ -273,6 +275,7 @@ class Server:
         """ Send packets from the outgoing packets queue to the correct client. A thread will always run this function """
         while True:
             data, connection = self.outgoing_data.get()
+            # print("sending packet:", data)
             self.server_socket.sendto(data, connection.to_tuple())
 
     

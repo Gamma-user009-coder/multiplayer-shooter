@@ -1,3 +1,5 @@
+from itertools import count
+
 from client.client import Client
 from player import *
 from settings import *
@@ -8,7 +10,7 @@ from client.protocol import *
 
 CLIENT_IP = "0.0.0.0"
 SERVER_IP = "127.0.0.1"
-SERVER_PORT = 12345
+SERVER_PORT = 54321
 CLIENT_PORT = 12345
 
 
@@ -41,8 +43,7 @@ class Game:
         self.explosion_frames: List[pygame.Surface]
         self.client = Client(CLIENT_IP, CLIENT_PORT, SERVER_IP, SERVER_PORT, username)
         self.client.connect_to_server()
-        self.client.player_id = 0
-        # self.client.wait_for_id()
+        self.client.wait_for_id()
 
         self._load_assets()
         self._create_game_objects()
@@ -50,7 +51,7 @@ class Game:
     def _load_background_asset(self) -> None:
         """Loads the background image or creates a fallback."""
         try:
-            self.background = pygame.image.load("assets/background.jpg").convert()
+            self.background = pygame.image.load("gui/assets/background.jpg").convert()
             self.background = pygame.transform.scale(self.background, (self.width, self.height))
             print("[INFO] Background loaded successfully.")
         except Exception as e:
@@ -61,7 +62,7 @@ class Game:
     def _load_sprite_sheet(self) -> None:
         """Loads the player sprite sheet or creates a fallback."""
         try:
-            self.player_sheet = pygame.image.load("assets/wizard_sheet.png").convert_alpha()
+            self.player_sheet = pygame.image.load("gui/assets/wizard_sheet.png").convert_alpha()
             print("[INFO] Wizard sprite sheet loaded successfully.")
         except Exception as e:
             print(f"[ERROR] Could not load wizard_sheet.png: {e}. Using fallback surface.")
@@ -118,13 +119,13 @@ class Game:
         self._load_sprite_sheet()
 
         self.fireball_frames = self._load_animation_frames(
-            "fireball", "assets/Fireball", FIREBALL_FRAME_COUNT)
+            "fireball", "gui/assets/Fireball", FIREBALL_FRAME_COUNT)
         if not self.fireball_frames:
             self.fireball_frames = self._create_fireball_fallback_frames()
             print("[INFO] Using fallback fireball frames.")
 
         self.explosion_frames = self._load_animation_frames(
-            "explosion", "assets/exp", EXPLOSION_FRAME_COUNT, EXPLOSION_SIZE)
+            "explosion", "gui/assets/exp", EXPLOSION_FRAME_COUNT, EXPLOSION_SIZE)
         if not self.explosion_frames:
             self.explosion_frames = self._create_explosion_fallback_frames()
             print("[INFO] Using fallback explosion frame.")
@@ -169,7 +170,7 @@ class Game:
                         if player_id == str(self.client.player_id):
                             continue
                         elif self.players.get(int(player_id)) is None:
-                            self.players[player_id] = Player(
+                            self.players[int(player_id)] = Player(
                                 x, y, self.group, self.player_sheet,
                                 self.height, self.group, self.fireball_frames, self.explosion_frames,
                             False)
@@ -180,7 +181,6 @@ class Game:
                 pass
 
     def run(self) -> None:
-
         """The main game loop."""
         while self.running:
             self.handle_events()

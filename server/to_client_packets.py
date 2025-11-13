@@ -56,5 +56,5 @@ class AssignId:
         self.player_id = player_id
 
     def to_dict(self):
-        return {'player_id': self.player_id}
+        return {'id': ToClientPackets.ASSIGN_ID_PACKET.value, 'player_id': self.player_id}
     ...

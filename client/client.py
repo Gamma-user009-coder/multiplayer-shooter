@@ -22,10 +22,11 @@ class Client:
                 try:
                     data, address = packet
                     if data["id"] == ServerPackets.ASSIGN_ID_PACKET.value:
-                        self.player_id = packet["player_id"]
-                        break
+                        self.player_id = int(data["player_id"])
+                        return
                 except KeyError:
                     pass
+
 
     def send_status_to_server(self, player_x, player_y, projectile_x=0, projectile_y=0):
         player = PlayerStatus(self.player_id, (player_x,player_y), None)

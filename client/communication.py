@@ -15,7 +15,7 @@ class Connection:
         self.server_ip = server_ip
         self.server_port = server_port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.client_socket.bind((self.ip, self.port))
+        self.client_socket.bind((self.ip, 0))
         self.exit = threading.Event()
         self.client_socket.settimeout(TIMEOUT)
         self.listener = threading.Thread(target=self.listener_function)
@@ -33,7 +33,6 @@ class Connection:
                 pass
 
     def send(self, data: dict):
-        print(f"Sending... {data}")
         self.client_socket.sendto(json.dumps(data).encode(), (self.server_ip, self.server_port))
 
     def get_packets(self) -> List[tuple[dict, tuple[str, int]]]:
