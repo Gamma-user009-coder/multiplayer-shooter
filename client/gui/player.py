@@ -36,7 +36,7 @@ class Player(AdvancedGameObject):
 
     def __init__(self, x: int, y: int, group: pygame.sprite.Group, sprite_sheet: pygame.Surface, screen_height: int,
                  render_group: 'CustomLayeredGroup', fireball_frames: List[pygame.Surface],
-                 explosion_frames: List[pygame.Surface]):
+                 explosion_frames: List[pygame.Surface], is_enemy: bool):
         """
         Initializes the Player object.
 
@@ -52,6 +52,7 @@ class Player(AdvancedGameObject):
         animations: Dict[str, List[pygame.Surface]] = self._extract_animations(sprite_sheet)
         super().__init__(x, y, animations, "idle", group, GameLayers.OBJECTS)
         self._setup_player_attributes(screen_height, render_group, fireball_frames, explosion_frames)
+        self.is_enemy = is_enemy
 
     def _extract_animations(self, sheet: pygame.Surface) -> Dict[str, List[pygame.Surface]]:
         """Extracts and scales all animation sets from the sprite sheet."""
@@ -199,7 +200,8 @@ class Player(AdvancedGameObject):
 
     def update(self, screen_width: int, screen_height: int, platforms: List['Slab']) -> None:
         """Main update loop, handles input, status, and animation."""
-        self.handle_input(screen_width, screen_height, platforms)
+        if not self.is_enemy:
+            self.handle_input(screen_width, screen_height, platforms)
         self.update_status()
         self.update_animation()
         self._handle_attack_logic()

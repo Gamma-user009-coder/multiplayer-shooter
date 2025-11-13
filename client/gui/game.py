@@ -1,14 +1,22 @@
-from custom_layered_group import CustomLayeredGroup
-from slab import *
+from client.client import Client
 from player import *
-
 from settings import *
+from slab import *
+from client import *
+from client.protocol import *
+
+
+CLIENT_IP = "0.0.0.0"
+SERVER_IP = "127.0.0.1"
+SERVER_PORT = 12345
+CLIENT_PORT = 12345
+
 
 
 class Game:
     """The main class managing the game loop, assets, and objects."""
 
-    def __init__(self, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT, fps: int = FPS):
+    def __init__(self, username: str, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT,fps: int = FPS):
         """
         Initializes the Pygame window, assets, and game objects.
 
@@ -31,6 +39,10 @@ class Game:
         self.player_sheet: pygame.Surface
         self.fireball_frames: List[pygame.Surface]
         self.explosion_frames: List[pygame.Surface]
+        self.client = Client(CLIENT_IP, CLIENT_PORT, SERVER_IP, SERVER_PORT, username)
+        self.client.connect_to_server()
+        self.client.player_id = 0
+        # self.client.wait_for_id()
 
         self._load_assets()
         self._create_game_objects()
@@ -120,10 +132,10 @@ class Game:
     def _create_game_objects(self) -> None:
         """Initializes the player and all static platforms."""
         # Player initialization
-        self.player: Player = Player(
+        self.players = {self.client.player_id: Player(
             200, self.height - WIZARD["height"], self.group, self.player_sheet,
-            self.height, self.group, self.fireball_frames, self.explosion_frames
-        )
+            self.height, self.group, self.fireball_frames, self.explosion_frames,
+        False)}
 
         # SLAB CREATION (Constant Positions)
         slab_data: List[Tuple[int, int, int, int]] = [
@@ -144,27 +156,31 @@ class Game:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    self.player.attack()
+                    self.players[self.client.player_id].attack()
 
-    def connect_to_server(self) -> bool:
-        pass
-
-    def disconnect_from_server(self) -> bool:
-        pass
-
-    def send_player_state(self) -> None:
-        pass
-
-    def update_enemy_location(self) -> None:
-        pass
-
-    def start_explosion(self) -> None:
-        pass
-
-    def update_projectile_location(self) -> None:
-        pass
+    def handle_packets(self):
+        packets = self.client.connection.get_packets()
+        for packet in packets:
+            try:
+                data, address = packet
+                if data["id"] == ServerPackets.GAME_STATUS.value:
+                    data.pop("id")
+                    for player_id, (hp, (x, y)) in data.items():
+                        if player_id == str(self.client.player_id):
+                            continue
+                        elif self.players.get(int(player_id)) is None:
+                            self.players[player_id] = Player(
+                                x, y, self.group, self.player_sheet,
+                                self.height, self.group, self.fireball_frames, self.explosion_frames,
+                            False)
+                        else:
+                            self.players[int(player_id)].rect.x = x
+                            self.players[int(player_id)].rect.y = y
+            except KeyError:
+                pass
 
     def run(self) -> None:
+
         """The main game loop."""
         while self.running:
             self.handle_events()
@@ -173,7 +189,8 @@ class Game:
             self.window.blit(self.background, (0, 0))
 
             # Update player (needs platforms for collision)
-            self.player.update(self.width, self.height, self.platforms)
+            for player_id, player in self.players.items():
+                player.update(self.width, self.height, self.platforms)
 
             # Update the rest of the sprites (Fireballs and Explosions)
             self.group.update(self.width, self.height, self.platforms)
@@ -181,6 +198,9 @@ class Game:
             # Draw all sprites using the layered group
             self.group.render(self.window)
 
+            my_player = self.players[self.client.player_id]
+            self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
+            self.handle_packets()
             pygame.display.flip()
             self.clock.tick(FPS)
 
