@@ -32,6 +32,7 @@ class PlayerStatus:
         self.pos = pos
         self.projectile = projectile
 
+
 # packet id: 1
 class JoinGameRequest:
     player_id = int

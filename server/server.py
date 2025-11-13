@@ -32,8 +32,7 @@ class Server:
     level: Level
 
     last_update: float  # sec
-    
-    # list of (Player, socket)
+
     # socket is ip, port
     server_socket = socket.socket
     incoming_data = queue.Queue[tuple[bytes, Connection]]
@@ -44,12 +43,18 @@ class Server:
     next_connection_id: int
 
     def __init__(self):
+        # players
         self.players: dict[int, Player] = {}
+        # projectiles
         self.projectiles: list[Projectile] = []
+        # incoming packets queue
         self.incoming_data: queue.Queue[tuple[bytes, Connection]] = queue.Queue()
+        # outgoing packets queue
         self.outgoing_data: queue.Queue[tuple[bytes, Connection]] = queue.Queue()
+        # dict of player id as key and connection as value
         self.connections: dict[int, Connection] = {}
-        self.next_connection_id = 0
+        # the id that will be given to the next new client
+        self.next_connection_id = 1
         
         self.last_update = time.perf_counter()
 
@@ -162,7 +167,11 @@ class Server:
             In case of a new connection the server will assign them an id and respond to the client.
             A thread will always run this function. """
         while True:
-            data, connection = self.server_socket.recvfrom(2048)
+            try:
+                data, connection = self.server_socket.recvfrom(2048)
+            except ConnectionResetError as e:
+                print("Client closed socket:\n", e)
+                continue
             try:
                 if json.loads(data)['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
                     # TODO: Handle the username field of the packet (create player).
@@ -230,38 +239,40 @@ class Server:
             else:
                 print("unknown id")
 
-        except KeyError:
-            print("key error while deserializing")
+        except KeyError as e:
+            print("key error while deserializing:\n", e)
 
-        except TypeError:
-            print("type error while deserializing")
+        except TypeError as e:
+            print("type error while deserializing:\n", e)
 
 
     def handle_player_update(self, json_dict):
         """ Handle packet of update of a player's status """
         projectile = None
         player_id = json_dict['player_id']
-        if json_dict['bomb'] != 0:
-            x, y, angle = json_dict['bomb']
+        if self.players.get(player_id) is None:
+            self.players[player_id] = Player(player_id)
+        if json_dict['projectile']:
+            x, y, angle = json_dict['projectile']
             projectile = Projectile(x, y, player_id, angle)
-        player_status = from_client_packets.PlayerStatus(player_id, json_dict['cord'], projectile)
+        player_status = from_client_packets.PlayerStatus(player_id, json_dict['pos'], projectile)
 
         self.players[player_status.player_id].x = player_status.pos[0]
         self.players[player_status.player_id].y = player_status.pos[1]
         if projectile:
             self.projectiles.append(projectile)
 
-        for player in self.players:
-            msg = to_client_packets.PlayerStatus(self.players, self.projectiles).to_dict()
+        for player_id in self.players.keys():
+            player_class = self.players[player_id]
+            msg = to_client_packets.GameStatus(self.players, self.projectiles).to_dict()
             msg = json.dumps(msg).encode()
-            self.outgoing_data.put(())
-        # TODO: fully handle player status update
+            self.outgoing_data.put((msg, self.connections[player_id]))
+        # TODO: fully handle player status update (actual game calculations)
 
     def send_data(self):
         """ Send packets from the outgoing packets queue to the correct client. A thread will always run this function """
         while True:
             data, connection = self.outgoing_data.get()
-            print(data, connection.to_tuple(), sep='\n')
             self.server_socket.sendto(data, connection.to_tuple())
 
     

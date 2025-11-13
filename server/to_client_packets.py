@@ -5,7 +5,7 @@ from enum import Enum
 
 class ToClientPackets(Enum):
     ERROR_MESSAGE = 0
-    PLAYER_STATUS = 1
+    GAME_STATUS = 1
     JOIN_GAME_RESPONSE = 2
     END_ROUND_PACKET = 3
     END_GAME_PACKET = 4
@@ -17,17 +17,17 @@ class ErrorMessage:
     error_id = int
 
 # packet id: 1
-class PlayerStatus:
+class GameStatus:
     players = dict[int, Player]
     projectiles = list[Projectile]
     def __init__(self, players, projectiles):
-        self.players = players
+        self.players: dict[int, Player] = players
         self.projectiles = projectiles
 
     def to_dict(self):
-        dct = {}
-        for player in self.players:
-            dct[player.id] = player.to_tuple()
+        dct = {'id': ToClientPackets.GAME_STATUS.value}
+        for player_id in self.players.keys():
+            dct[str(player_id)] = self.players[player_id].to_tuple()
         return dct
 
 
