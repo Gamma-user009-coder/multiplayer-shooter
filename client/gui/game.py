@@ -169,10 +169,10 @@ class Game:
             try:
                 data, address = packet
                 if data["id"] == ServerPackets.GAME_STATUS.value:
-                    # print(data)
+                    print(data)
                     data.pop("id")
-                    # projectiles: list[tuple[int, tuple[int, int]]] = data.get("projectiles")
-                    # data.pop("projectiles")
+                    projectiles: list[tuple[int, tuple[int, int]]] = data.get("projectiles")
+                    data.pop("projectiles")
                     # print(data)
                     for player_id, (hp, (x, y)) in data.items():
                         if player_id == str(self.client.player_id):
@@ -183,11 +183,14 @@ class Game:
                                 self.height, self.group, self.fireball_frames, self.explosion_frames,
                             True)
                         else:
-                            # if projectiles:
-                            #     (team_id, (x, y)) = projectiles[0]
-                            #     self.enemy_projectile.rect.x = x
-                            #     self.enemy_projectile.rect.y = y
+                            if projectiles:
+                                for (team_id, (px, py)) in projectiles:
+                                    if team_id != str(self.client.player_id):
+                                        self.enemy_projectile.rect.x = px
+                                        self.enemy_projectile.rect.y = py
                             self.players[int(player_id)].update_enemy(x, y)
+
+
             except KeyError:
                 pass
 
@@ -210,11 +213,11 @@ class Game:
             self.group.render(self.window)
 
             my_player = self.players[self.client.player_id]
-            # if my_player.fireball is not None and my_player.fireball.alive:
-            #     print("Sending bullet")
-            #     self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x, my_player.fireball.rect.y)
-            # else:
-            self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
+            if my_player.fireball is not None and my_player.fireball.alive:
+                print("Sending bullet")
+                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x, my_player.fireball.rect.y)
+            else:
+                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
             self.handle_packets()
             pygame.display.flip()
             self.clock.tick(FPS)
