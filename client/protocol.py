@@ -13,6 +13,8 @@ class Projectile:
         self.starting_pos = starting_pos
         self.angle = angle
 
+    def to_tuple(self):
+        return self.starting_pos[0], self.starting_pos[1], self.angle
 
 class PlayerPack:
     hp = int

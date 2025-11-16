@@ -37,6 +37,8 @@ class Fireball(AdvancedGameObject):
         self.rect: pygame.Rect = self.image.get_rect(center=(x, y))
         self.facing_right: bool = direction > 0
         self.flip_image: bool = False
+        self.alive = True
+        self.is_enemy = False
 
     def _check_kill_conditions(self, screen_width: int, screen_height: int) -> bool:
         """Checks if the fireball should be killed (off-screen, hit lifetime)."""
@@ -51,6 +53,7 @@ class Fireball(AdvancedGameObject):
             # Spawn the explosion at the current center position
             if self.explosion_frames and self.groups():
                 # Use the first group (the main render group) for spawning
+                self.alive = False
                 Explosion(self.rect.centerx, self.rect.centery, self.groups()[0], self.explosion_frames)
             self.kill()
             return True
@@ -59,17 +62,17 @@ class Fireball(AdvancedGameObject):
     def update(self, screen_width: int, screen_height: int, platforms: List['Slab'] = None) -> None:
         """Move the fireball, apply gravity, and check boundaries."""
         # Note: platforms argument is ignored but kept for compatibility.
+        if not self.is_enemy:
+            # 1. Horizontal Movement
+            self.rect.x += self.direction * self.speed
 
-        # 1. Horizontal Movement
-        self.rect.x += self.direction * self.speed
+            # 2. Vertical Movement (Parabola)
+            self.vel_y += self.gravity
+            self.rect.y += int(self.vel_y)  # vel_y is float, rect needs int
 
-        # 2. Vertical Movement (Parabola)
-        self.vel_y += self.gravity
-        self.rect.y += int(self.vel_y)  # vel_y is float, rect needs int
-
-        # 3. Check for explosion and removal
-        if self._check_kill_conditions(screen_width, screen_height):
-            return
+            # 3. Check for explosion and removal
+            if self._check_kill_conditions(screen_width, screen_height):
+                return
 
         self.update_animation()
 

@@ -47,6 +47,10 @@ class Game:
 
         self._load_assets()
         self._create_game_objects()
+        self.enemy_projectile = Fireball(-100, -100, 0, self.group,
+                 self.fireball_frames, self.explosion_frames, WIZARD["initial_fireball_vel_y"])
+        self.enemy_projectile.is_enemy = True
+
 
     def _load_background_asset(self) -> None:
         """Loads the background image or creates a fallback."""
@@ -165,7 +169,11 @@ class Game:
             try:
                 data, address = packet
                 if data["id"] == ServerPackets.GAME_STATUS.value:
+                    # print(data)
                     data.pop("id")
+                    # projectiles: list[tuple[int, tuple[int, int]]] = data.get("projectiles")
+                    # data.pop("projectiles")
+                    # print(data)
                     for player_id, (hp, (x, y)) in data.items():
                         if player_id == str(self.client.player_id):
                             continue
@@ -173,10 +181,13 @@ class Game:
                             self.players[int(player_id)] = Player(
                                 x, y, self.group, self.player_sheet,
                                 self.height, self.group, self.fireball_frames, self.explosion_frames,
-                            False)
+                            True)
                         else:
-                            self.players[int(player_id)].rect.x = x
-                            self.players[int(player_id)].rect.y = y
+                            # if projectiles:
+                            #     (team_id, (x, y)) = projectiles[0]
+                            #     self.enemy_projectile.rect.x = x
+                            #     self.enemy_projectile.rect.y = y
+                            self.players[int(player_id)].update_enemy(x, y)
             except KeyError:
                 pass
 
@@ -199,6 +210,10 @@ class Game:
             self.group.render(self.window)
 
             my_player = self.players[self.client.player_id]
+            # if my_player.fireball is not None and my_player.fireball.alive:
+            #     print("Sending bullet")
+            #     self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x, my_player.fireball.rect.y)
+            # else:
             self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
             self.handle_packets()
             pygame.display.flip()
