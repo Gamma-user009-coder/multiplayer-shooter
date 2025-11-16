@@ -11,6 +11,22 @@ class ToClientPackets(Enum):
     END_GAME_PACKET = 4
     JOIN_ROOM_RESPONSE = 5
     ASSIGN_ID_PACKET = 6
+    START_GAME = 7
+
+# packet id: 7
+class StartGame:
+    players = dict[int, Player]
+    def __init__(self, players):
+        self.players: dict[int, Player] = players
+    def to_dict(self):
+        positions = [(200, 100), (400, 100)]
+        dct = {'id': ToClientPackets.START_GAME.value}
+        i = 0
+        for player_id, player in self.players.items():
+            dct[str(player_id)] = (player.username, positions[i % 2])
+            i += 1
+        return dct
+
 
 # packet id: 0
 class ErrorMessage:
@@ -20,7 +36,7 @@ class ErrorMessage:
 class GameStatus:
     players = dict[int, Player]
     projectiles = list[Projectile]
-    def __init__(self, players, projectiles):
+    def __init__(self, players, projectiles: list[Projectile]):
         self.players: dict[int, Player] = players
         self.projectiles = projectiles
 
@@ -28,6 +44,11 @@ class GameStatus:
         dct = {'id': ToClientPackets.GAME_STATUS.value}
         for player_id in self.players.keys():
             dct[str(player_id)] = self.players[player_id].to_tuple()
+        dct['projectiles']: list = []
+        for projectile in self.projectiles:
+            dct['projectiles'].append((projectile.team, projectile.to_tuple()))
+
+
         return dct
 
 

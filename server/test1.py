@@ -1,11 +1,13 @@
 import socket
 import json
 import from_client_packets
+import to_client_packets
 import time
+
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    sock.connect(('127.0.0.1', 12345))
+    sock.connect(('127.0.0.1', 54321))
     dct = from_client_packets.FirstConnectionRequest("amit the king").to_dict()
     sock.send(json.dumps(dct).encode())
     print("sent")
@@ -15,13 +17,16 @@ def main():
     player_status_dict = {'id': from_client_packets.FromClientPackets.PLAYER_STATUS.value,
                           'player_id': player_id,
                           'pos': (50, 50),
-                          'projectile': None }
+                          'projectile': (50, 50, 50) }
     json_player_status = json.dumps(player_status_dict)
-
     while True:
         sock.send(json_player_status.encode())
-        print("sent status")
-        print(sock.recvfrom(1024))
+        data, connection = sock.recvfrom(1024)
+        data = json.loads(data)
+        if data['id'] == to_client_packets.ToClientPackets.START_GAME.value:
+            print(data)
+        if data['id'] == to_client_packets.ToClientPackets.GAME_STATUS.value:
+            print("game status: ", data)
 
     sock.close()
 
