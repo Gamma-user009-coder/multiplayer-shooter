@@ -45,6 +45,7 @@ class Server:
     players = dict[int, Player]
     projectiles: list[Projectile]
     next_connection_id: int
+    ongoing_game: bool
 
     def __init__(self):
         # players
@@ -59,6 +60,8 @@ class Server:
         self.connections: dict[int, Connection] = {}
         # the id that will be given to the next new client
         self.next_connection_id = 1
+        # bool to say if game has started
+        self.ongoing_game = False
         
         self.last_update = time.perf_counter()
 
@@ -206,6 +209,19 @@ class Server:
     def handle_data(self):
         """ Get a packet out of the incoming data queue, parse it then pass it to the handler """
         while True:
+
+            # hardcoded to start game when there is 2 players, might change in the future if there are rooms
+            if len(self.players) == 2 and not self.ongoing_game:
+                print("starting game")
+                self.ongoing_game = True
+                for player_id, player in self.players.items():
+                    msg = to_client_packets.StartGame(self.players).to_dict()
+                    msg = json.dumps(msg).encode()
+                    print("starting game message:\n", msg)
+                    print("players: ", self.players)
+                    self.outgoing_data.put((msg, self.connections[player_id]))
+
+
             data, connection = self.incoming_data.get()
             try:
                 json_dict = json.loads(data.decode())
@@ -275,7 +291,7 @@ class Server:
             self.projectiles.append(projectile)
 
         for player_id in self.players.keys():
-            player_class = self.players[player_id]
+            # player_class = self.players[player_id]
             msg = to_client_packets.GameStatus(self.players, self.projectiles).to_dict()
             msg = json.dumps(msg).encode()
             self.outgoing_data.put((msg, self.connections[player_id]))

@@ -1,7 +1,9 @@
 import socket
 import json
 import from_client_packets
+import to_client_packets
 import time
+
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -19,8 +21,10 @@ def main():
     json_player_status = json.dumps(player_status_dict)
     while True:
         sock.send(json_player_status.encode())
-        print("sent status")
-        print(sock.recvfrom(1024))
+        data, connection = sock.recvfrom(1024)
+        data = json.loads(data)
+        if data['id'] == to_client_packets.ToClientPackets.START_GAME.value:
+            print(data)
 
     sock.close()
 
