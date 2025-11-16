@@ -203,6 +203,10 @@ class Server:
                 print("Invalid packet - type error")
                 continue
 
+            except Exception as e:
+                print("unexpected error:", e)
+                continue
+
             self.incoming_data.put((data, Connection(connection[0], connection[1])))
 
 
@@ -224,12 +228,15 @@ class Server:
 
             data, connection = self.incoming_data.get()
             try:
-                json_dict = json.loads(data.decode())
+                json_dict = json.loads(data)
 
             except JSONDecodeError:
                 print("Invalid JSON")
                 # return error to client (maybe returning error to client isn't required, TBD)
                 continue
+
+            except Exception as e:
+                print("unexpected error when deserializing data: ", e)
 
             self.handle_requests(json_dict)
 
@@ -265,6 +272,9 @@ class Server:
         except TypeError as e:
             print("type error while deserializing:\n", e)
 
+        except Exception as e:
+            print("unexpected error:\n", e)
+
     def handle_first_connection(self, json_dict):
         new_player_id = json_dict['player_id']
         connection = json_dict['connection']
@@ -281,6 +291,7 @@ class Server:
         if self.players.get(player_id) is None:
             self.players[player_id] = Player(player_id)
         if json_dict['projectile']:
+            print("handling projectile")
             x, y, angle = json_dict['projectile']
             projectile = Projectile(x, y, player_id, angle)
         player_status = from_client_packets.PlayerStatus(player_id, json_dict['pos'], projectile)
@@ -288,7 +299,13 @@ class Server:
         self.players[player_status.player_id].x = player_status.pos[0]
         self.players[player_status.player_id].y = player_status.pos[1]
         if projectile:
-            self.projectiles.append(projectile)
+            updated = False
+            for i in range(len(self.projectiles)):
+                if self.projectiles[i].team == player_status.player_id:
+                    self.projectiles[i] = projectile
+                    updated = True
+            if not updated:
+                self.projectiles.append(projectile)
 
         for player_id in self.players.keys():
             # player_class = self.players[player_id]

@@ -36,7 +36,7 @@ class ErrorMessage:
 class GameStatus:
     players = dict[int, Player]
     projectiles = list[Projectile]
-    def __init__(self, players, projectiles):
+    def __init__(self, players, projectiles: list[Projectile]):
         self.players: dict[int, Player] = players
         self.projectiles = projectiles
 
@@ -44,6 +44,11 @@ class GameStatus:
         dct = {'id': ToClientPackets.GAME_STATUS.value}
         for player_id in self.players.keys():
             dct[str(player_id)] = self.players[player_id].to_tuple()
+        dct['projectiles']: list = []
+        for projectile in self.projectiles:
+            dct['projectiles'].append((projectile.team, projectile.to_tuple()))
+
+
         return dct
 
 

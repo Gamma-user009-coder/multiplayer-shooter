@@ -17,7 +17,7 @@ def main():
     player_status_dict = {'id': from_client_packets.FromClientPackets.PLAYER_STATUS.value,
                           'player_id': player_id,
                           'pos': (50, 50),
-                          'projectile': None }
+                          'projectile': (50, 50, 50) }
     json_player_status = json.dumps(player_status_dict)
     while True:
         sock.send(json_player_status.encode())
@@ -25,6 +25,8 @@ def main():
         data = json.loads(data)
         if data['id'] == to_client_packets.ToClientPackets.START_GAME.value:
             print(data)
+        if data['id'] == to_client_packets.ToClientPackets.GAME_STATUS.value:
+            print("game status: ", data)
 
     sock.close()
 
