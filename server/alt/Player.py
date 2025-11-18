@@ -48,6 +48,19 @@ class Player(pygame.sprite.Sprite):
         self.lock.release()
         return res
 
+    @property
+    def x(self):
+        return self.rect.x
+    @x.setter
+    def x(self, value):
+        self.rect.x = value
+    @property
+    def y(self):
+        return self.rect.y
+    @y.setter
+    def y(self, value):
+        self.rect.y = value
+
 
     def collide_projectiles(self, projectiles: list[Projectile]):
         res = []

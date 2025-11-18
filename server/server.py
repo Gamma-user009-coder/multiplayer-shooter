@@ -266,8 +266,10 @@ class Server:
             projectile = Projectile(x, y, player_id, angle)
         player_status = from_client_packets.PlayerStatus(player_id, json_dict['pos'], projectile)
 
+        self.players[player_status.player_id].lock.acquire()
         self.players[player_status.player_id].x = player_status.pos[0]
         self.players[player_status.player_id].y = player_status.pos[1]
+        self.players[player_status.player_id].lock.release()
         if projectile:
             self.projectiles.append(projectile)
 
