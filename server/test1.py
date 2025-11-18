@@ -19,7 +19,12 @@ def main():
                           'pos': (50, 50),
                           'projectile': (50, 50, 50) }
     json_player_status = json.dumps(player_status_dict)
+    i = 0
     while True:
+        if i == 250:
+            player_status_dict['projectile'] = None
+            json_player_status = json.dumps(player_status_dict)
+            print(json_player_status)
         sock.send(json_player_status.encode())
         data, connection = sock.recvfrom(1024)
         data = json.loads(data)
@@ -27,6 +32,9 @@ def main():
             print(data)
         if data['id'] == to_client_packets.ToClientPackets.GAME_STATUS.value:
             print("game status: ", data)
+        if i == 252:
+            time.sleep(10)
+        i += 1
 
     sock.close()
 
