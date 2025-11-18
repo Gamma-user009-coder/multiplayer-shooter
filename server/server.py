@@ -44,11 +44,16 @@ class Server:
     projectiles: list[Projectile]
     next_connection_id: int
 
+    TPS = 60
+
     def __init__(self):
         # players
         self.players: dict[int, Player] = {}
         # projectiles
         self.projectiles: list[Projectile] = []
+        # level
+        self.level = Level()
+        self.level.load("level.txt")
         # incoming packets queue
         self.incoming_data: queue.Queue[tuple[bytes, Connection]] = queue.Queue()
         # outgoing packets queue
@@ -73,6 +78,14 @@ class Server:
                     player.make_hit()
             self.projectiles.pop(i)
         self.last_update += dt
+
+    def run_server_logic(self):
+        while True:
+            start_time = time.perf_counter()
+            self.tick()
+            time_taken = time.perf_counter() - start_time
+            if time_taken < 1 / self.TPS:
+                sleep(1 / 60 - time_taken)
 
     # obsolete
     def update_projectiles(self):
@@ -168,6 +181,7 @@ class Server:
         print(f"UDP server listening")
         threading.Thread(target=self.listen, daemon=True).start()
         threading.Thread(target=self.send_data, daemon=True).start()
+        threading.Thread(target=self.run_server_logic, daemon=True).start()
         self.handle_data()
 
 
