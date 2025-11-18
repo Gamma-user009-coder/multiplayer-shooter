@@ -1,5 +1,6 @@
 import pygame
 import math
+from threading import Lock
 
 class Projectile(pygame.sprite.Sprite):
 
@@ -12,6 +13,8 @@ class Projectile(pygame.sprite.Sprite):
     team_id: int
     x: float
     y: float
+
+    lock: Lock
 
     WIDTH = 20
     HEIGHT = 20
@@ -43,6 +46,8 @@ class Projectile(pygame.sprite.Sprite):
         self.explosion_mask = pygame.mask.from_surface(expl_surface)
         self.explosion_dist = (int(self.x - self.explosion_r), int(self.y - self.explosion_r))
 
+        self.lock = Lock()
+
     # @property
     # def x(self):
     #     return self.rect.x
@@ -58,13 +63,14 @@ class Projectile(pygame.sprite.Sprite):
 
 
     def update_position(self, dt: float) -> None:
+        self.lock.acquire()
         self.v.y -= self.GRAVITY * dt
         self.x += self.v.x * dt
         self.y += self.v.y * dt
         self.rect.x = int(self.x)
         self.rect.y = int(self.y)
         self.explosion_dist = (int(self.x - self.explosion_r), int(self.y - self.explosion_r))
-        print(self.y, self.v.y, dt)
+        self.lock.release()
 
 
 
