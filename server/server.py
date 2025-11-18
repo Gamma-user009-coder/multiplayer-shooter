@@ -1,8 +1,8 @@
 from time import sleep
 
-from Player import Player
-from Projectile import Projectile
-from Level import Level
+from alt.Player import Player
+from alt.Projectile import Projectile
+from alt.Level import Level
 
 from json import JSONDecodeError
 
@@ -61,12 +61,19 @@ class Server:
         self.last_update = time.perf_counter()
 
     def tick(self):
-        self.get_player_updates()
-        self.update_projectiles_check_collisions()
+        dt = time.perf_counter() - self.last_update
+        for proj in self.projectiles:
+            proj.update_position(dt)
+        projectiles_collisions = self.level.collide_projectiles(self.projectiles)
+        # handle explosions
+        for i in projectiles_collisions[::-1]:
+            proj = self.projectiles[i]
+            for player in self.players.values():
+                if not player.same_team(proj.team_id) and player.check_projectile_hit(proj):
+                    player.make_hit()
+            self.projectiles.pop(i)
+        self.last_update += dt
 
-    def get_player_updates(self):
-        """Receive the clients' updates about their player status"""
-        ...
     # obsolete
     def update_projectiles(self):
         """Update the positions of all existing projectiles"""
@@ -118,7 +125,7 @@ class Server:
         if update_projectiles:
             self.projectiles = new_projectiles
 
-
+    # obsolete
     def update_projectiles_check_collisions(self):
 
         new_projectiles = []
