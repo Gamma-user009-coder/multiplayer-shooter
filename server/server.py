@@ -1,11 +1,15 @@
 from time import sleep
 
+
 from alt.Player import Player
 from alt.Projectile import Projectile
 from alt.Level import Level
+from typing import Tuple
+
 
 from json import JSONDecodeError
 
+import math
 import time
 import socket
 import threading
@@ -43,6 +47,7 @@ class Server:
     players = dict[int, Player]
     projectiles: list[Projectile]
     next_connection_id: int
+    ongoing_game: bool
 
     TPS = 60
 
@@ -62,6 +67,8 @@ class Server:
         self.connections: dict[int, Connection] = {}
         # the id that will be given to the next new client
         self.next_connection_id = 1
+        # bool to say if game has started
+        self.ongoing_game = False
         
         self.last_update = time.perf_counter()
 
@@ -178,7 +185,7 @@ class Server:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.server_socket.bind(('0.0.0.0', 54321))
-        print(f"UDP server listening")
+        print(f"UDP server listening on", '0.0.0.0', 54321, sep=': ')
         threading.Thread(target=self.listen, daemon=True).start()
         threading.Thread(target=self.send_data, daemon=True).start()
         threading.Thread(target=self.run_server_logic, daemon=True).start()
@@ -196,18 +203,14 @@ class Server:
                 print("Client closed socket:\n", e)
                 continue
             try:
-                if json.loads(data)['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
-                    # TODO: Handle the username field of the packet (create player).
-
+                json_dct: dict = json.loads(data)
+                if json_dct['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
                     print("new client connected")
                     new_player_id = self.next_connection_id
-                    self.connections[new_player_id] = Connection(connection[0], connection[1])
+                    json_dct['player_id'] = new_player_id
+                    json_dct['connection'] = connection
                     self.next_connection_id += 1
-
-                    msg = json.dumps(to_client_packets.AssignId(new_player_id).to_dict()).encode()
-
-                    self.outgoing_data.put((msg, Connection(connection[0], connection[1])))
-                    continue
+                    data = json.dumps(json_dct).encode()
 
             except JSONDecodeError:
                 # return error to client (maybe returning error to client isn't required, TBD)
@@ -223,20 +226,40 @@ class Server:
                 print("Invalid packet - type error")
                 continue
 
+            except Exception as e:
+                print("unexpected error:", e)
+                continue
+
             self.incoming_data.put((data, Connection(connection[0], connection[1])))
 
 
     def handle_data(self):
         """ Get a packet out of the incoming data queue, parse it then pass it to the handler """
         while True:
+
+            # hardcoded to start game when there is 2 players, might change in the future if there are rooms
+            if len(self.players) == 2 and not self.ongoing_game:
+                print("starting game")
+                self.ongoing_game = True
+                for player_id, player in self.players.items():
+                    msg = to_client_packets.StartGame(self.players).to_dict()
+                    msg = json.dumps(msg).encode()
+                    print("starting game message:\n", msg)
+                    print("players: ", self.players)
+                    self.outgoing_data.put((msg, self.connections[player_id]))
+
+
             data, connection = self.incoming_data.get()
             try:
-                json_dict = json.loads(data.decode())
+                json_dict = json.loads(data)
 
             except JSONDecodeError:
                 print("Invalid JSON")
                 # return error to client (maybe returning error to client isn't required, TBD)
                 continue
+
+            except Exception as e:
+                print("unexpected error when deserializing data: ", e)
 
             self.handle_requests(json_dict)
 
@@ -245,14 +268,20 @@ class Server:
         """ Get json and pass it to the correct handler """
         # print("handling request for json:", json_dict)
         try:
-            if json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
+            if json_dict['id'] == FromClientPackets.FIRST_CONNECTION_REQUEST.value:
+                print("handling first connection packet")
+                self.handle_first_connection(json_dict)
+                return
+
+            elif json_dict['id'] == FromClientPackets.ERROR_MESSAGE.value:
                 print("handling error message packet")
                 # TODO: handle error message
 
-            if json_dict['id'] == FromClientPackets.JOIN_GAME_REQUEST.value:
+            elif json_dict['id'] == FromClientPackets.JOIN_GAME_REQUEST.value:
                 print("handling join game request packet")
                 player_id, username = json_dict['player_id'], json_dict['name']
                 join_game = from_client_packets.JoinGameRequest(player_id, username)
+                return
                 # TODO: handle join request
 
             elif json_dict['id'] == FromClientPackets.PLAYER_STATUS.value:
@@ -260,39 +289,90 @@ class Server:
                 self.handle_player_update(json_dict)
 
             else:
-                print("unknown id")
+                print("unknown id:", json_dict['id'])
 
         except KeyError as e:
-            print("key error while deserializing:\n", e)
+            print("key error while handling request:\n", e)
 
         except TypeError as e:
-            print("type error while deserializing:\n", e)
+            print("type error while handling request:\n", e)
 
+        except Exception as e:
+            print("unexpected error:\n", e)
+
+        self.send_game_status()
+
+    def send_game_status(self):
+        for player_id in self.players.keys():
+            # player_class = self.players[player_id]
+            msg = to_client_packets.GameStatus(self.players, self.projectiles).to_dict()
+            msg = json.dumps(msg).encode()
+            self.outgoing_data.put((msg, self.connections[player_id]))
+
+    def handle_first_connection(self, json_dict):
+        new_player_id = json_dict['player_id']
+        connection = json_dict['connection']
+        connection = Connection(connection[0], connection[1])
+        self.connections[new_player_id] = connection
+        self.players[new_player_id] = Player(new_player_id, json_dict['username'])
+        msg = json.dumps(to_client_packets.AssignId(new_player_id).to_dict()).encode()
+        self.outgoing_data.put((msg, connection))
+
+    def handle_none_projectile(self, player_id):
+        """ Handles projectile if it's None. Receives the player_id of the player who sent the projectile.
+        If client sent projectile as None, then either no projectile existed, or it has been detonated,
+        so we check if it detonated and if so, we check for players who have been hit
+        """
+        detonated_projectile = None
+        for i in range(len(self.projectiles)):
+            projectile = self.projectiles[i]
+            if projectile.team == player_id:
+                print("detonating projectile")
+                detonated_projectile = projectile
+                self.projectiles.pop(i)
+                break
+
+        if detonated_projectile:
+            for key in self.players.keys():
+                if int(key) == player_id:
+                    continue
+                player = self.players[key]
+                print("checking if player", key, " is exploded")
+                if math.dist((player.x, player.y), (detonated_projectile.x, detonated_projectile.y)) <= 150:
+                    self.players[key].hp -= 50
+                    if self.players[key].hp <= 0:
+                        self.players[key].hp = 0
 
     def handle_player_update(self, json_dict):
         """ Handle packet of update of a player's status """
-        projectile = None
         player_id = json_dict['player_id']
+
+        # player doesn't exist yet, shouldn't happen because of first connection packet
         if self.players.get(player_id) is None:
             self.players[player_id] = Player(player_id)
+
+        projectile = None
         if json_dict['projectile']:
             x, y, angle = json_dict['projectile']
             projectile = Projectile(x, y, player_id, angle)
         player_status = from_client_packets.PlayerStatus(player_id, json_dict['pos'], projectile)
 
+        # update player position
         self.players[player_status.player_id].lock.acquire()
         self.players[player_status.player_id].x = player_status.pos[0]
         self.players[player_status.player_id].y = player_status.pos[1]
         self.players[player_status.player_id].lock.release()
         if projectile:
-            self.projectiles.append(projectile)
+            updated = False
+            for i in range(len(self.projectiles)):
+                if self.projectiles[i].team == player_status.player_id:
+                    self.projectiles[i] = projectile
+                    updated = True
+            if not updated:
+                self.projectiles.append(projectile)
+        else:
+            self.handle_none_projectile(player_status.player_id)
 
-        for player_id in self.players.keys():
-            player_class = self.players[player_id]
-            msg = to_client_packets.GameStatus(self.players, self.projectiles).to_dict()
-            msg = json.dumps(msg).encode()
-            self.outgoing_data.put((msg, self.connections[player_id]))
-        # TODO: fully handle player status update (actual game calculations)
 
     def send_data(self):
         """ Send packets from the outgoing packets queue to the correct client. A thread will always run this function """

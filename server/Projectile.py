@@ -24,6 +24,9 @@ class Projectile:
     G = 30  # px/sec
     DEFAULT_EXPLOSION_RADIUS = 50  # px
 
+    def to_tuple(self):
+        return self.x, self.y
+
     def __init__(self, x0: int, y0: int, team: int, angle: float = None, v0: float = None, r: int = None):
         self.x0 = x0
         self.y0 = y0

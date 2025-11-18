@@ -4,10 +4,14 @@ from advanced_game_object import *
 from basic_game_object import *
 from custom_layered_group import *
 from fireball import Fireball
+from HealthBar import *
 
 # ==============================
 # PLAYER HELPER FUNCTIONS
 # ==============================
+HEALTH_BAR_WIDTH = 50
+HEALTH_BAR_HEIGHT = 8
+HEALTH_BAR_OFFSET_Y = -15 # Distance above the player's top edge
 
 def _load_scaled_frames_from_sheet(sheet: pygame.Surface, row: int, count: int) -> List[pygame.Surface]:
     """
@@ -53,6 +57,19 @@ class Player(AdvancedGameObject):
         super().__init__(x, y, animations, "idle", group, GameLayers.OBJECTS)
         self._setup_player_attributes(screen_height, render_group, fireball_frames, explosion_frames)
         self.is_enemy = is_enemy
+        self.second_pack = False
+        self.second_pack_jump = False
+        self.fireball = None
+        # Health Bar Initialization
+
+        self.current_health = 20
+        self.health_bar = HealthBar(
+            width=HEALTH_BAR_WIDTH,
+            height=HEALTH_BAR_HEIGHT,
+            max_health=100,
+            group=render_group
+        )
+
 
     def _extract_animations(self, sheet: pygame.Surface) -> Dict[str, List[pygame.Surface]]:
         """Extracts and scales all animation sets from the sprite sheet."""
@@ -95,7 +112,7 @@ class Player(AdvancedGameObject):
         direction: int = 1 if self.facing_right else -1
         initial_vel_y: float = WIZARD["initial_fireball_vel_y"]
 
-        Fireball(spawn_x, spawn_y, direction, self.render_group,
+        self.fireball = Fireball(spawn_x, spawn_y, direction, self.render_group,
                  self.fireball_frames, self.explosion_frames, initial_vel_y)
 
     def _apply_gravity_and_vertical_movement(self, dy: int, screen_height: int, platforms: List['Slab']) -> Tuple[int, int]:
@@ -205,6 +222,11 @@ class Player(AdvancedGameObject):
         self.update_status()
         self.update_animation()
         self._handle_attack_logic()
+        # Calculate the bar's top-left position based on the player's position
+        bar_x = self.rect.centerx - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.top + HEALTH_BAR_OFFSET_Y
+
+        self.health_bar.update_bar(self.current_health, bar_x, bar_y)
 
     def draw(self, screen: pygame.Surface) -> None:
         """Draws the player sprite, adjusting position by the offset to align with the collision rect."""
@@ -212,4 +234,36 @@ class Player(AdvancedGameObject):
         # Using the defined scale to center the image better in the collision box
         screen.blit(img, (self.rect.x - (self.offset[0] * self.image_scale),
                           self.rect.y - (self.offset[1] * self.image_scale)))
+
+    def update_enemy(self, x, y):
+        delta_x = x - self.rect.x
+        delta_y = y - self.rect.y
+        if delta_x > 0:
+            self.running = True
+            self.facing_right = True
+            self.second_pack = False
+
+        elif delta_x < 0:
+            self.running = True
+            self.facing_right = False
+            self.second_pack = False
+
+        else:
+            if self.second_pack:
+                self.running = False
+            else:
+                self.second_pack = True
+
+        if delta_y != 0:
+            self.running = False
+            self.jump = True
+            self.second_pack_jump = False
+        else:
+            if self.second_pack_jump:
+                self.jump = False
+            else:
+                self.second_pack_jump = True
+
+        self.rect.x = x
+        self.rect.y = y
 
