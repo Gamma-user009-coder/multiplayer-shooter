@@ -1,3 +1,4 @@
+import threading
 from itertools import count
 
 from client.client import Client
@@ -7,18 +8,17 @@ from slab import *
 from client import *
 from client.protocol import *
 
-
 CLIENT_IP = "0.0.0.0"
 SERVER_IP = "127.0.0.1"
+# SERVER_IP = "172.20.20.23"
 SERVER_PORT = 54321
 CLIENT_PORT = 12345
-
 
 
 class Game:
     """The main class managing the game loop, assets, and objects."""
 
-    def __init__(self, username: str, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT,fps: int = FPS):
+    def __init__(self, username: str, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT, fps: int = FPS):
         """
         Initializes the Pygame window, assets, and game objects.
 
@@ -48,14 +48,15 @@ class Game:
         self._load_assets()
         self._create_game_objects()
         self.enemy_projectile = Fireball(-100, -100, 0, self.group,
-                 self.fireball_frames, self.explosion_frames, WIZARD["initial_fireball_vel_y"])
+                                         self.fireball_frames, self.explosion_frames, WIZARD["initial_fireball_vel_y"])
         self.enemy_projectile.is_enemy = True
-
+        self.enemy_fireball_fired = False
+        self.update_gui = False
 
     def _load_background_asset(self) -> None:
         """Loads the background image or creates a fallback."""
         try:
-            self.background = pygame.image.load("gui/assets/background.jpg").convert()
+            self.background = pygame.image.load("assets/background.jpg").convert()
             self.background = pygame.transform.scale(self.background, (self.width, self.height))
             print("[INFO] Background loaded successfully.")
         except Exception as e:
@@ -66,7 +67,7 @@ class Game:
     def _load_sprite_sheet(self) -> None:
         """Loads the player sprite sheet or creates a fallback."""
         try:
-            self.player_sheet = pygame.image.load("gui/assets/wizard_sheet.png").convert_alpha()
+            self.player_sheet = pygame.image.load("assets/wizard_sheet.png").convert_alpha()
             print("[INFO] Wizard sprite sheet loaded successfully.")
         except Exception as e:
             print(f"[ERROR] Could not load wizard_sheet.png: {e}. Using fallback surface.")
@@ -123,13 +124,13 @@ class Game:
         self._load_sprite_sheet()
 
         self.fireball_frames = self._load_animation_frames(
-            "fireball", "gui/assets/Fireball", FIREBALL_FRAME_COUNT)
+            "fireball", "assets/Fireball", FIREBALL_FRAME_COUNT)
         if not self.fireball_frames:
             self.fireball_frames = self._create_fireball_fallback_frames()
             print("[INFO] Using fallback fireball frames.")
 
         self.explosion_frames = self._load_animation_frames(
-            "explosion", "gui/assets/exp", EXPLOSION_FRAME_COUNT, EXPLOSION_SIZE)
+            "explosion", "assets/exp", EXPLOSION_FRAME_COUNT, EXPLOSION_SIZE)
         if not self.explosion_frames:
             self.explosion_frames = self._create_explosion_fallback_frames()
             print("[INFO] Using fallback explosion frame.")
@@ -137,10 +138,7 @@ class Game:
     def _create_game_objects(self) -> None:
         """Initializes the player and all static platforms."""
         # Player initialization
-        self.players = {self.client.player_id: Player(
-            200, self.height - WIZARD["height"], self.group, self.player_sheet,
-            self.height, self.group, self.fireball_frames, self.explosion_frames,
-        False)}
+        self.players = {}
 
         # SLAB CREATION (Constant Positions)
         slab_data: List[Tuple[int, int, int, int]] = [
@@ -169,58 +167,114 @@ class Game:
             try:
                 data, address = packet
                 if data["id"] == ServerPackets.GAME_STATUS.value:
-                    print(data)
                     data.pop("id")
                     projectiles: list[tuple[int, tuple[int, int]]] = data.get("projectiles")
                     data.pop("projectiles")
                     # print(data)
                     for player_id, (hp, (x, y)) in data.items():
-                        if player_id == str(self.client.player_id):
-                            continue
-                        elif self.players.get(int(player_id)) is None:
-                            self.players[int(player_id)] = Player(
-                                x, y, self.group, self.player_sheet,
-                                self.height, self.group, self.fireball_frames, self.explosion_frames,
-                            True)
-                        else:
+                        self.players[int(player_id)].current_health = hp
+                        if player_id != str(self.client.player_id):
+                            self.players[int(player_id)].update_enemy(x, y)
+
+
                             if projectiles:
                                 for (team_id, (px, py)) in projectiles:
                                     if team_id != str(self.client.player_id):
+                                        if self.players[int(team_id)].flag:
+                                            self.players[int(team_id)].attack()
+                                            self.players[int(team_id)].flag = False
+
+                                        self.players[int(team_id)].attack_cooldown = WIZARD["attack_cooldown"]
                                         self.enemy_projectile.rect.x = px
                                         self.enemy_projectile.rect.y = py
-                            self.players[int(player_id)].update_enemy(x, y)
+                            else:
+                                self.enemy_fireball_fired = False
+                                self.players[int(player_id)].flag = True
+
+                                Explosion(self.enemy_projectile.rect.centerx, self.enemy_projectile.rect.centery, self.enemy_projectile.groups()[0],
+                                self.enemy_projectile.explosion_frames)
+                                self.enemy_projectile.rect.x = -200
+                                self.enemy_projectile.rect.y = -200
+
+
+
+
+
+                elif data["id"] == ServerPackets.START_GAME.value:
+                    data.pop("id")
+                    print(data)
+                    for player_id, (username, (x, y)) in data.items():
+                        player_id = int(player_id)
+                        if player_id == self.client.player_id:
+                            is_enemy = False
+                        else:
+                            is_enemy = True
+                        self.players[int(player_id)] = Player(
+                            x, y, self.group, self.player_sheet,
+                            self.height, self.group, self.fireball_frames, self.explosion_frames,
+                            is_enemy, username)
+                    self.update_gui = True
+                    return False
 
 
             except KeyError:
                 pass
+        return True
 
     def run(self) -> None:
         """The main game loop."""
         while self.running:
-            self.handle_events()
-
-            # Draw background
-            self.window.blit(self.background, (0, 0))
-
-            # Update player (needs platforms for collision)
-            for player_id, player in self.players.items():
-                player.update(self.width, self.height, self.platforms)
-
-            # Update the rest of the sprites (Fireballs and Explosions)
-            self.group.update(self.width, self.height, self.platforms)
-
-            # Draw all sprites using the layered group
-            self.group.render(self.window)
-
-            my_player = self.players[self.client.player_id]
-            if my_player.fireball is not None and my_player.fireball.alive:
-                print("Sending bullet")
-                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x, my_player.fireball.rect.y)
-            else:
-                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
             self.handle_packets()
-            pygame.display.flip()
-            self.clock.tick(FPS)
+            if self.update_gui:
+                self.handle_events()
+
+                # Draw background
+                self.window.blit(self.background, (0, 0))
+
+                # Update player (needs platforms for collision)
+                for player_id, player in self.players.items():
+                    player.update(self.width, self.height, self.platforms)
+
+
+
+                # for sprite in self.group.sprites():
+                #     # 2. Check if the sprite is an active Fireball (or projectile)
+                #     if isinstance(sprite, Fireball):
+                #         fireball: Fireball = sprite
+                #         # 3. Iterate over all enemy players (targets)
+                #         for player_id, target_player in self.players.items():
+                #             # Only check collision if the target player is not the projectile owner
+                #             # and the target player is not the enemy projectile itself
+                #             if player_id != self.client.player_id and fireball is not None:
+                #
+                #                 # 4. Perform the pixel-perfect collision check
+                #                 if target_player.check_mask_collision(fireball):
+                #                     print(f"Hit!!! Player {player_id} hit by Fireball.")
+                #
+                #                     # # 5. Handle the collision (must be done immediately)
+                #                     # target_player.current_health -= 10  # Example damage
+                #                     fireball.alive = False
+                #                     Explosion(fireball.rect.centerx, fireball.rect.centery, fireball.groups()[0],
+                #                               fireball.explosion_frames)
+                #                     fireball.kill()  # Remove the fireball from all groups (stops its movement)
+                #                     target_player.current_health -=10
+                #                     break  # Move to the next fireball once collision is found
+
+                # Update the rest of the sprites (Fireballs and Explosions)
+                self.group.update(self.width, self.height, self.platforms)
+
+                # Draw all sprites using the layered group
+                self.group.render(self.window)
+
+                my_player = self.players[self.client.player_id]
+                if my_player.fireball is not None and my_player.fireball.alive:
+                    self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x,
+                                                      my_player.fireball.rect.y)
+                else:
+                    self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
+
+                pygame.display.flip()
+                self.clock.tick(FPS)
 
         pygame.quit()
         sys.exit()

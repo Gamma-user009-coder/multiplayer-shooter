@@ -5,13 +5,18 @@ from basic_game_object import *
 from custom_layered_group import *
 from fireball import Fireball
 from HealthBar import *
+from typing import List, Dict, Any, Tuple  # Added for robust type hinting
 
 # ==============================
-# PLAYER HELPER FUNCTIONS
+# PLAYER HELPER FUNCTIONS & CONSTANTS
 # ==============================
 HEALTH_BAR_WIDTH = 50
 HEALTH_BAR_HEIGHT = 8
-HEALTH_BAR_OFFSET_Y = -15 # Distance above the player's top edge
+HEALTH_BAR_OFFSET_Y = -15  # Distance above the player's top edge
+# USERNAME LABEL CONSTANTS (New)
+USERNAME_FONT_SIZE = 20
+USERNAME_OFFSET_Y = HEALTH_BAR_OFFSET_Y - 12  # Distance above the health bar
+
 
 def _load_scaled_frames_from_sheet(sheet: pygame.Surface, row: int, count: int) -> List[pygame.Surface]:
     """
@@ -30,7 +35,7 @@ def _load_scaled_frames_from_sheet(sheet: pygame.Surface, row: int, count: int) 
         rect: pygame.Rect = pygame.Rect(col * frame_size, row * frame_size, frame_size, frame_size)
         frame: pygame.Surface = sheet.subsurface(rect)
         scaled_frame: pygame.Surface = pygame.transform.scale(frame, (int(frame_size * scale),
-                                                                       int(frame_size * scale)))
+                                                                      int(frame_size * scale)))
         frames.append(scaled_frame)
     return frames
 
@@ -40,7 +45,7 @@ class Player(AdvancedGameObject):
 
     def __init__(self, x: int, y: int, group: pygame.sprite.Group, sprite_sheet: pygame.Surface, screen_height: int,
                  render_group: 'CustomLayeredGroup', fireball_frames: List[pygame.Surface],
-                 explosion_frames: List[pygame.Surface], is_enemy: bool):
+                 explosion_frames: List[pygame.Surface], is_enemy: bool, username: str) -> None:
         """
         Initializes the Player object.
 
@@ -52,6 +57,8 @@ class Player(AdvancedGameObject):
         :param render_group: The group to which projectiles will be added.
         :param fireball_frames: Frames for the fireball projectile.
         :param explosion_frames: Frames for the explosion effect.
+        :param is_enemy: Boolean indicating if this is an enemy player.
+        :param username: The username string to display above the health bar.
         """
         animations: Dict[str, List[pygame.Surface]] = self._extract_animations(sprite_sheet)
         super().__init__(x, y, animations, "idle", group, GameLayers.OBJECTS)
@@ -60,9 +67,10 @@ class Player(AdvancedGameObject):
         self.second_pack = False
         self.second_pack_jump = False
         self.fireball = None
-        # Health Bar Initialization
+        self.username = username
 
-        self.current_health = 20
+        # Health Bar Initialization
+        self.current_health = 100
         self.health_bar = HealthBar(
             width=HEALTH_BAR_WIDTH,
             height=HEALTH_BAR_HEIGHT,
@@ -70,6 +78,10 @@ class Player(AdvancedGameObject):
             group=render_group
         )
 
+        # Username Label Initialization (NEW)
+        # Use the system font (None) with the defined size
+        self.username_font = pygame.font.Font(None, USERNAME_FONT_SIZE)
+        self.username_color = (255, 255, 255)  # White color for the text
 
     def _extract_animations(self, sheet: pygame.Surface) -> Dict[str, List[pygame.Surface]]:
         """Extracts and scales all animation sets from the sprite sheet."""
@@ -97,6 +109,7 @@ class Player(AdvancedGameObject):
         self.attacking: bool = False
         self.attack_cooldown: int = 0
         self.shot_fired: bool = False
+        self.flag = True
 
         self.render_group: CustomLayeredGroup = render_group
         self.fireball_frames: List[pygame.Surface] = fireball_frames
@@ -113,9 +126,10 @@ class Player(AdvancedGameObject):
         initial_vel_y: float = WIZARD["initial_fireball_vel_y"]
 
         self.fireball = Fireball(spawn_x, spawn_y, direction, self.render_group,
-                 self.fireball_frames, self.explosion_frames, initial_vel_y)
+                                 self.fireball_frames, self.explosion_frames, initial_vel_y)
 
-    def _apply_gravity_and_vertical_movement(self, dy: int, screen_height: int, platforms: List['Slab']) -> Tuple[int, int]:
+    def _apply_gravity_and_vertical_movement(self, dy: int, screen_height: int, platforms: List['Slab']) -> Tuple[
+        int, int]:
         """Applies gravity, checks vertical collision with platforms, and returns adjusted dy."""
         # Apply Gravity
         self.vel_y += self.gravity
@@ -151,7 +165,7 @@ class Player(AdvancedGameObject):
         self.rect.x += dx
 
         # Horizontal boundary check
-        if self.rect.left  < 30:
+        if self.rect.left < 30:
             self.rect.left = 30
         if self.rect.right > screen_width:
             self.rect.right = screen_width
@@ -186,10 +200,12 @@ class Player(AdvancedGameObject):
 
     def attack(self) -> None:
         """Starts the attack animation if the cooldown is ready."""
-        if self.attack_cooldown == 0 and not self.attacking:
+        # Allow the attack to start if it's the local player *and* cooldown is ready,
+        # OR if it's an enemy player being commanded by the server (i.e., not currently attacking)
+        if self.is_enemy or (self.attack_cooldown == 0 and not self.attacking):
             self.attacking = True
             self.frame_index = 0
-            self.shot_fired = False
+            self.shot_fired = self.is_enemy
 
     def update_status(self) -> None:
         """Determines the current animation status based on player state."""
@@ -228,12 +244,33 @@ class Player(AdvancedGameObject):
 
         self.health_bar.update_bar(self.current_health, bar_x, bar_y)
 
+    def _draw_username_label(self, screen: pygame.Surface) -> None:
+        """Draws the username label above the health bar. (NEW)"""
+        # 1. Render the username text
+        text_surface: pygame.Surface = self.username_font.render(
+            self.username,
+            True,  # Anti-aliasing
+            self.username_color
+        )
+
+        # 2. Calculate the position for the username label
+        # Center the text above the player's collision rect
+        text_x: int = self.rect.centerx - (text_surface.get_width() // 2)
+        # Position it above the health bar using the dedicated offset constant
+        text_y: int = self.rect.top + USERNAME_OFFSET_Y
+
+        # 3. Draw the text
+        screen.blit(text_surface, (text_x, text_y))
+
     def draw(self, screen: pygame.Surface) -> None:
-        """Draws the player sprite, adjusting position by the offset to align with the collision rect."""
+        """Draws the player sprite and the username label."""
         img: pygame.Surface = self.image
         # Using the defined scale to center the image better in the collision box
         screen.blit(img, (self.rect.x - (self.offset[0] * self.image_scale),
                           self.rect.y - (self.offset[1] * self.image_scale)))
+
+        # Draw the username label (NEW)
+        self._draw_username_label(screen)
 
     def update_enemy(self, x, y):
         delta_x = x - self.rect.x
@@ -266,4 +303,3 @@ class Player(AdvancedGameObject):
 
         self.rect.x = x
         self.rect.y = y
-
