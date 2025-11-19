@@ -1,4 +1,9 @@
+from time import sleep
+
 import customtkinter as ctk
+import pygame
+
+from client.gui.loading_screen import LoadingScreen
 from game import Game
 
 # Set the appearance mode and theme (optional but recommended)
@@ -64,5 +69,9 @@ class LoginScreen(ctk.CTk):
 
 # --- Main Execution Block ---
 if __name__ == "__main__":
+    screen = LoadingScreen()
+    sleep(2)
+    screen.quit()
+    pygame.quit()
     app = LoginScreen()
     app.mainloop()

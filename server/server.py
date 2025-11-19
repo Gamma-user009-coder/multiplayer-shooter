@@ -218,6 +218,7 @@ class Server:
             # hardcoded to start game when there is 2 players, might change in the future if there are rooms
             if len(self.players) == 2 and not self.ongoing_game:
                 print("starting game")
+                sleep(0.5)
                 self.ongoing_game = True
                 for player_id, player in self.players.items():
                     msg = to_client_packets.StartGame(self.players).to_dict()
@@ -317,7 +318,7 @@ class Server:
                 player = self.players[key]
                 print("checking if player", key, " is exploded")
                 if math.dist((player.x, player.y), (detonated_projectile.x, detonated_projectile.y)) <= 150:
-                    self.players[key].hp -= 50
+                    self.players[key].hp -= 10
                     if self.players[key].hp <= 0:
                         self.players[key].hp = 0
 

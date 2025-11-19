@@ -1,13 +1,19 @@
 import threading
 from itertools import count
+from time import sleep
+
+import pygame
 
 from client.client import Client
+from client.gui.loading_screen import LoadingScreen
 from player import *
 from settings import *
 from slab import *
 from client import *
 from client.protocol import *
 
+CLOSE_CLIENT_EVENT = pygame.USEREVENT + 1
+END_SCREEN_DURATION = 5  # seconds
 CLIENT_IP = "0.0.0.0"
 SERVER_IP = "127.0.0.1"
 # SERVER_IP = "172.20.20.23"
@@ -26,6 +32,8 @@ class Game:
         :param height: Screen height.
         :param fps: Frames per second limit.
         """
+
+
         pygame.init()
         self.window: pygame.Surface = pygame.display.set_mode((width, height))
         pygame.display.set_caption("Wizard Platformer Example")
@@ -52,6 +60,14 @@ class Game:
         self.enemy_projectile.is_enemy = True
         self.enemy_fireball_fired = False
         self.update_gui = False
+
+        # --- Game State Variables for End Screen ---
+        self.game_over: bool = False
+        self.win_status: Optional[bool] = None  # True for win, False for loss, None for ongoing
+        self.end_screen_start_time: Optional[float] = None
+        self.end_screen_font: pygame.font.Font = pygame.font.Font(None, 74)
+        self.small_font: pygame.font.Font = pygame.font.Font(None, 36)
+        # --- End Game State Variables ---
 
     def _load_background_asset(self) -> None:
         """Loads the background image or creates a fallback."""
@@ -152,10 +168,64 @@ class Game:
             slab: Slab = Slab(x, y, w, h, self.group)
             self.platforms.append(slab)
 
+
+    def set_game_over(self, win: bool):
+        """
+        Sets the game state to game_over, records win/loss status,
+        starts the timer for automatic closing, and marks the end screen start time.
+
+        :param win: True if the local player won, False if they lost.
+        """
+        if not self.game_over:
+            self.game_over = True
+            self.win_status = win
+            self.end_screen_start_time = pygame.time.get_ticks() / 1000.0  # Time in seconds
+
+            # Start a timer thread to post the close event after the delay
+            threading.Timer(END_SCREEN_DURATION,
+                            lambda: pygame.event.post(pygame.event.Event(CLOSE_CLIENT_EVENT))).start()
+            print(f"[INFO] Game Over: {'Win' if win else 'Loss'}. Client will close in {END_SCREEN_DURATION} seconds.")
+
+    def display_end_screen(self):
+        """Draws the victory or loss screen with the username and countdown."""
+        if self.win_status is None:
+            return
+
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # Black with 180/255 opacity
+        self.window.blit(overlay, (0, 0))
+
+        # Determine message and color
+        if self.win_status:
+            main_text = f"VICTORY, {self.client.username.upper()}!"
+            color = (0, 255, 0)  # Green
+        else:
+            main_text = f"DEFEAT, {self.client.username.upper()}"
+            color = (255, 0, 0)  # Red
+
+        # Main message rendering
+        text_surface = self.end_screen_font.render(main_text, True, color)
+        text_rect = text_surface.get_rect(center=(self.width // 2, self.height // 2 - 40))
+        self.window.blit(text_surface, text_rect)
+
+        # Countdown message rendering
+        time_elapsed = (pygame.time.get_ticks() / 1000.0) - self.end_screen_start_time
+        time_remaining = max(0, END_SCREEN_DURATION - time_elapsed)
+        countdown_text = f"Closing in {int(time_remaining) + 1} seconds..."  # +1 for a more natural countdown start
+
+        countdown_surface = self.small_font.render(countdown_text, True, (200, 200, 200))  # Light Gray
+        countdown_rect = countdown_surface.get_rect(center=(self.width // 2, self.height // 2 + 50))
+        self.window.blit(countdown_surface, countdown_rect)
+
+
     def handle_events(self) -> None:
         """Handles Pygame events like quit and input."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == CLOSE_CLIENT_EVENT:
+                print("[INFO] Received CLOSE_CLIENT_EVENT. Shutting down...")
                 self.running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
@@ -219,14 +289,31 @@ class Game:
 
             except KeyError:
                 pass
+
+        # --- Check for Game Over condition after processing all packets ---
+        if self.update_gui and not self.game_over :
+            for player_id, player in self.players.items():
+                if player.current_health <= 0:
+                    self.set_game_over(player_id != self.client.player_id)  # Local player lost
+        # --- End Game Over Check ---
+
         return True
 
     def run(self) -> None:
+
         """The main game loop."""
         while self.running:
             self.handle_packets()
             if self.update_gui:
                 self.handle_events()
+
+                if self.game_over:
+                    # If game is over, only draw the end screen and flip
+                    self.display_end_screen()
+                    pygame.display.flip()
+                    self.clock.tick(FPS)
+                    continue  # Skip the rest of the game loop updates
+
 
                 # Draw background
                 self.window.blit(self.background, (0, 0))
@@ -234,31 +321,6 @@ class Game:
                 # Update player (needs platforms for collision)
                 for player_id, player in self.players.items():
                     player.update(self.width, self.height, self.platforms)
-
-
-
-                # for sprite in self.group.sprites():
-                #     # 2. Check if the sprite is an active Fireball (or projectile)
-                #     if isinstance(sprite, Fireball):
-                #         fireball: Fireball = sprite
-                #         # 3. Iterate over all enemy players (targets)
-                #         for player_id, target_player in self.players.items():
-                #             # Only check collision if the target player is not the projectile owner
-                #             # and the target player is not the enemy projectile itself
-                #             if player_id != self.client.player_id and fireball is not None:
-                #
-                #                 # 4. Perform the pixel-perfect collision check
-                #                 if target_player.check_mask_collision(fireball):
-                #                     print(f"Hit!!! Player {player_id} hit by Fireball.")
-                #
-                #                     # # 5. Handle the collision (must be done immediately)
-                #                     # target_player.current_health -= 10  # Example damage
-                #                     fireball.alive = False
-                #                     Explosion(fireball.rect.centerx, fireball.rect.centery, fireball.groups()[0],
-                #                               fireball.explosion_frames)
-                #                     fireball.kill()  # Remove the fireball from all groups (stops its movement)
-                #                     target_player.current_health -=10
-                #                     break  # Move to the next fireball once collision is found
 
                 # Update the rest of the sprites (Fireballs and Explosions)
                 self.group.update(self.width, self.height, self.platforms)

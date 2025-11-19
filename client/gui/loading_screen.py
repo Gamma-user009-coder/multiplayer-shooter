@@ -1,11 +1,16 @@
 import pygame
 import math
+import threading
+from time import sleep
 
 import settings
 
 
 class LoadingScreen:
-    def __init__(self, width: int = settings.SCREEN_WIDTH, height: int = settings.SCREEN_HEIGHT):
+    def __init__(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self, width: int = settings.SCREEN_WIDTH, height: int = settings.SCREEN_HEIGHT):
         pygame.init()
 
         self.running = True
@@ -62,7 +67,9 @@ class LoadingScreen:
 
 
 def main():
-    LoadingScreen()
+    screen = LoadingScreen()
+    sleep(2)
+    screen.quit()
 
 
 if __name__ == "__main__":
