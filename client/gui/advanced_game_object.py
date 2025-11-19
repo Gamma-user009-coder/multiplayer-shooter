@@ -57,3 +57,6 @@ class AdvancedGameObject(BasicGameObject):
         if not self.facing_right:
             self.image = pygame.transform.flip(self.image, True, False)
 
+    def check_mask_collision(self, other: 'AdvancedGameObject') -> bool:
+        return self.rect.colliderect(other.rect)
+

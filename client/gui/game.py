@@ -7,18 +7,17 @@ from slab import *
 from client import *
 from client.protocol import *
 
-
 CLIENT_IP = "0.0.0.0"
-SERVER_IP = "127.0.0.1"
+# SERVER_IP = "127.0.0.1"
+SERVER_IP = "172.20.20.23"
 SERVER_PORT = 54321
 CLIENT_PORT = 12345
-
 
 
 class Game:
     """The main class managing the game loop, assets, and objects."""
 
-    def __init__(self, username: str, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT,fps: int = FPS):
+    def __init__(self, username: str, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT, fps: int = FPS):
         """
         Initializes the Pygame window, assets, and game objects.
 
@@ -48,9 +47,9 @@ class Game:
         self._load_assets()
         self._create_game_objects()
         self.enemy_projectile = Fireball(-100, -100, 0, self.group,
-                 self.fireball_frames, self.explosion_frames, WIZARD["initial_fireball_vel_y"])
+                                         self.fireball_frames, self.explosion_frames, WIZARD["initial_fireball_vel_y"])
         self.enemy_projectile.is_enemy = True
-
+        self.enemy_fireball_fired = False
 
     def _load_background_asset(self) -> None:
         """Loads the background image or creates a fallback."""
@@ -140,7 +139,7 @@ class Game:
         self.players = {self.client.player_id: Player(
             200, self.height - WIZARD["height"], self.group, self.player_sheet,
             self.height, self.group, self.fireball_frames, self.explosion_frames,
-        False)}
+            False)}
 
         # SLAB CREATION (Constant Positions)
         slab_data: List[Tuple[int, int, int, int]] = [
@@ -169,25 +168,34 @@ class Game:
             try:
                 data, address = packet
                 if data["id"] == ServerPackets.GAME_STATUS.value:
-                    print(data)
                     data.pop("id")
+                    print(data)
                     projectiles: list[tuple[int, tuple[int, int]]] = data.get("projectiles")
                     data.pop("projectiles")
                     # print(data)
                     for player_id, (hp, (x, y)) in data.items():
                         if player_id == str(self.client.player_id):
+                            self.players[int(player_id)].current_health = hp
                             continue
                         elif self.players.get(int(player_id)) is None:
                             self.players[int(player_id)] = Player(
                                 x, y, self.group, self.player_sheet,
                                 self.height, self.group, self.fireball_frames, self.explosion_frames,
-                            True)
+                                True)
                         else:
                             if projectiles:
                                 for (team_id, (px, py)) in projectiles:
                                     if team_id != str(self.client.player_id):
+                                        self.enemy_fireball_fired = True
                                         self.enemy_projectile.rect.x = px
                                         self.enemy_projectile.rect.y = py
+                                if not self.enemy_fireball_fired:
+                                    self.enemy_fireball_fired = False
+                                    self.enemy_projectile.rect.x = -200
+                                    self.enemy_projectile.rect.y = -200
+                                    Explosion(self.enemy_projectile.rect.centerx, self.enemy_projectile.rect.centery, self.enemy_projectile.groups()[0],
+                                    self.enemy_projectile.explosion_frames)
+
                             self.players[int(player_id)].update_enemy(x, y)
 
 
@@ -206,6 +214,29 @@ class Game:
             for player_id, player in self.players.items():
                 player.update(self.width, self.height, self.platforms)
 
+            # for sprite in self.group.sprites():
+            #     # 2. Check if the sprite is an active Fireball (or projectile)
+            #     if isinstance(sprite, Fireball):
+            #         fireball: Fireball = sprite
+            #         # 3. Iterate over all enemy players (targets)
+            #         for player_id, target_player in self.players.items():
+            #             # Only check collision if the target player is not the projectile owner
+            #             # and the target player is not the enemy projectile itself
+            #             if player_id != self.client.player_id and fireball is not None:
+            #
+            #                 # 4. Perform the pixel-perfect collision check
+            #                 if target_player.check_mask_collision(fireball):
+            #                     print(f"Hit!!! Player {player_id} hit by Fireball.")
+            #
+            #                     # # 5. Handle the collision (must be done immediately)
+            #                     # target_player.current_health -= 10  # Example damage
+            #                     fireball.alive = False
+            #                     Explosion(fireball.rect.centerx, fireball.rect.centery, fireball.groups()[0],
+            #                               fireball.explosion_frames)
+            #                     fireball.kill()  # Remove the fireball from all groups (stops its movement)
+            #                     target_player.current_health -=10
+            #                     break  # Move to the next fireball once collision is found
+
             # Update the rest of the sprites (Fireballs and Explosions)
             self.group.update(self.width, self.height, self.platforms)
 
@@ -214,8 +245,8 @@ class Game:
 
             my_player = self.players[self.client.player_id]
             if my_player.fireball is not None and my_player.fireball.alive:
-                print("Sending bullet")
-                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x, my_player.fireball.rect.y)
+                self.client.send_status_to_server(my_player.rect.x, my_player.rect.y, my_player.fireball.rect.x,
+                                                  my_player.fireball.rect.y)
             else:
                 self.client.send_status_to_server(my_player.rect.x, my_player.rect.y)
             self.handle_packets()

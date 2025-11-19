@@ -73,6 +73,5 @@ class Fireball(AdvancedGameObject):
             # 3. Check for explosion and removal
             if self._check_kill_conditions(screen_width, screen_height):
                 return
-
         self.update_animation()
 

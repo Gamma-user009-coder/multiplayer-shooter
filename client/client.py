@@ -33,7 +33,6 @@ class Client:
         if projectile_x and projectile_y:
             bomb = Projectile(self.player_id, (projectile_x, projectile_y), 0)
             player.projectile = bomb.to_tuple()
-            print(player.to_dict())
         self.connection.send(player.to_dict())
 
 

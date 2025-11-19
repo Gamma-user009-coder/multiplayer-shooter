@@ -62,7 +62,7 @@ class Player(AdvancedGameObject):
         self.fireball = None
         # Health Bar Initialization
 
-        self.current_health = 20
+        self.current_health = 100
         self.health_bar = HealthBar(
             width=HEALTH_BAR_WIDTH,
             height=HEALTH_BAR_HEIGHT,
